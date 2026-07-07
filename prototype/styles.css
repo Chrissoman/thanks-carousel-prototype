@@ -1,0 +1,739 @@
+/* ============================================================
+   EMBED-SCOPED base — everything lives under .thanks-proto so
+   this stylesheet can be injected into partner pages without
+   touching their styles. No :root / html / body / * rules.
+   ============================================================ */
+
+/* Gramatika — Thanks brand font (extracted from the production
+   widget embed; weights 400/500/700) */
+@font-face {
+  font-family: "Gramatika";
+  src: url("/fonts/gramatika-400.woff2") format("woff2");
+  font-weight: 400;
+  font-style: normal;
+  font-display: swap;
+}
+@font-face {
+  font-family: "Gramatika";
+  src: url("/fonts/gramatika-500.woff2") format("woff2");
+  font-weight: 500;
+  font-style: normal;
+  font-display: swap;
+}
+@font-face {
+  font-family: "Gramatika";
+  src: url("/fonts/gramatika-700.woff2") format("woff2");
+  font-weight: 700;
+  font-style: normal;
+  font-display: swap;
+}
+
+/* Registered custom properties → hover vars become transitionable
+   (the scroll-driven values stay instant; only hover animates). */
+@property --hover-y { syntax: "<length>"; initial-value: 0px; inherits: false; }
+@property --hover-s { syntax: "<number>"; initial-value: 1; inherits: false; }
+@property --hover-glow { syntax: "<number>"; initial-value: 0; inherits: false; }
+
+.thanks-proto,
+.thanks-proto * { box-sizing: border-box; margin: 0; padding: 0; }
+
+.thanks-proto {
+  /* behave in ANY host container: fill the slot; if the slot is a
+     grid row (eBay's confirmation layout), span it fully.
+     NO margins here — outer spacing belongs to each page's
+     placement CSS (pages.json), not the embed. */
+  width: 100%;
+  min-width: 0;
+  grid-column: 1 / -1;
+}
+
+.thanks-proto {
+  --ink: #1d1d1f;
+  --ink-soft: #6e6e73;
+  --line: #e5e5e5;
+  --card-radius: 18px;
+
+  /* Apple's standard easing */
+  --ease-apple: cubic-bezier(0.4, 0, 0.6, 1);
+
+  /* Dotnav (Apple values, light theme) */
+  --dot-size: 8px;
+  --dot-bg: rgba(0, 0, 0, 0.25);
+  --dot-bg-hover: rgba(0, 0, 0, 0.4);
+  --dot-active-track: rgba(0, 0, 0, 0.15);
+  --dot-active-fill: #1d1d1f;
+  --dot-active-width: 34px;
+
+  font-family: "Gramatika", -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+  color: var(--ink);
+  line-height: 1.4;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  text-align: left;      /* hosts sometimes centre the slot (Oztix does) */
+}
+
+/* Dark host surfaces (detected from the slot background, or forced
+   via the Theme setting): flip the ink + dots. Cards stay light —
+   they're their own surface. */
+.thanks-proto.theme-dark {
+  --ink: #f5f5f7;
+  --ink-soft: #a1a1a6;
+  --line: rgba(255, 255, 255, 0.18);
+  --dot-bg: rgba(255, 255, 255, 0.35);
+  --dot-bg-hover: rgba(255, 255, 255, 0.55);
+  --dot-active-fill: #f5f5f7;
+}
+/* panel + cards keep their own light surfaces; restore dark ink inside them */
+.thanks-proto.theme-dark .slide__inner,
+.thanks-proto.theme-dark .settings-panel {
+  --ink: #1d1d1f;
+  --ink-soft: #6e6e73;
+  --line: #e5e5e5;
+  color: #1d1d1f;
+}
+
+/* ============================================================
+   Carousel section  (full-bleed — no wrapper)
+   ------------------------------------------------------------
+   All geometry is computed in JS (sizeCards) from the config:
+     --card-w  : slide width   (container − 2×edge, clamped by max width)
+     --card-h  : slide height  (proportional, clamped by max height)
+     --edge    : visible gutter each side of the centred card
+     --spacer  : scrollable end-spacer (= edge − gap)
+     --gap     : px between slides
+   Peek is a % of container width; if max-width clamps the card,
+   the surplus space simply becomes a larger peek.
+   ============================================================ */
+.carousel {
+  --gap: 16px;
+  --edge: 56px;
+  --spacer: 40px;
+  width: 100%;
+  /* the whole unit sits on a 3% black fill */
+  background: rgba(0, 0, 0, 0.03);
+  border-radius: var(--unit-radius, 0px);
+  padding-top: 22px;
+  /* bottom padding mirrors the dots' top gap → pagination is
+     equally spaced above and below */
+  padding-bottom: 26px;
+}
+.thanks-proto.theme-dark .carousel { background: rgba(255, 255, 255, 0.05); }
+.carousel__head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 0 var(--edge);          /* line title up with first card */
+  margin-bottom: 18px;
+}
+/* .thanks-proto prefix: outguns host patterns like
+   ".receipt-container h2" (Oztix) without resorting to !important */
+.thanks-proto .carousel__title {
+  font-size: 21px;
+  font-weight: 700;
+  letter-spacing: -0.01em;
+  text-wrap: balance;
+  color: var(--ink);
+  font-family: inherit;
+  line-height: 1.3;
+}
+
+/* Play / pause — bare icon, lives in the pagination row ---------*/
+.carousel__playpause {
+  flex: none;
+  position: relative;
+  width: 28px; height: 28px;
+  border: none;
+  background: none;
+  box-shadow: none;
+  border-radius: 50%;
+  color: var(--ink);
+  cursor: pointer;
+  opacity: 0.55;                 /* muted, like the idle dots */
+  transition: opacity .15s ease, transform .1s ease;
+}
+/* extend the 28px control to a 40px hit area */
+.carousel__playpause::before {
+  content: "";
+  position: absolute;
+  inset: -6px;
+  border-radius: 50%;
+}
+.carousel__playpause:hover { opacity: 1; }
+.carousel__playpause:active { transform: scale(0.96); }
+/* icons cross-fade (opacity/scale/blur) instead of display toggling —
+   both stay in the DOM, absolutely centred */
+.carousel__playpause svg {
+  position: absolute;
+  inset: 0;
+  margin: auto;
+  width: 18px; height: 18px;
+  fill: currentColor;
+  opacity: 0;
+  scale: 0.25;
+  filter: blur(4px);
+  transition: opacity .3s cubic-bezier(0.2, 0, 0, 1),
+              scale .3s cubic-bezier(0.2, 0, 0, 1),
+              filter .3s cubic-bezier(0.2, 0, 0, 1);
+}
+.carousel:not(.is-paused):not(.is-ended) .carousel__playpause .icon-pause,
+.carousel.is-paused:not(.is-ended) .carousel__playpause .icon-play,
+.carousel.is-ended .carousel__playpause .icon-replay {
+  opacity: 1;
+  scale: 1;
+  filter: blur(0);
+}
+
+/* ============================================================
+   Scroll viewport + track
+   ============================================================ */
+.carousel__viewport {
+  overflow-x: auto;
+  overflow-y: hidden;
+  scroll-snap-type: x mandatory;      /* snap always lands on a slide */
+  -webkit-overflow-scrolling: touch;
+  /* No CSS scroll-behavior: programmatic scrolls are JS-eased. */
+  outline: none;
+  scrollbar-width: none;
+  /* BUGFIX: overflow-y hidden was clipping card shadows / hover lift.
+     Reserve painting room inside the scroller, cancel it outside
+     (Apple does the same on .scroll-container). Progress dots come
+     later in the DOM so they stay on top and clickable. */
+  padding-block: 16px 56px;
+  margin-block: -16px -56px;
+}
+.carousel__viewport::-webkit-scrollbar { display: none; }
+
+.carousel__track {
+  display: flex;
+  gap: var(--gap);
+  list-style: none;
+  width: max-content;
+}
+/* Spacers reserve real, scrollable end-gutters so the first & last
+   slides can reach the centre (fixes flex end-padding not scrolling). */
+.carousel__track::before,
+.carousel__track::after {
+  content: "";
+  flex: 0 0 var(--spacer);
+}
+
+.slide {
+  /* Width is computed in JS from the viewport (--card-w) because a
+     % basis here would resolve against the max-content track, not the
+     viewport. Peek stays constant; the CARD absorbs responsive change. */
+  flex: 0 0 var(--card-w, 300px);
+  scroll-snap-align: center;
+
+  /* Shared scroll-position vars (Apple's mechanism): every effect on
+     this slide — card dim/scale/shadow AND text — derives from these.
+     --offset  : signed distance from centre, in cards
+     --abs     : |offset|
+     --centred : 1 at centre → 0 one card away (clamped)              */
+  --offset: calc(var(--progress, 0) - var(--autoplay-progress, 0));
+  --abs: max(var(--offset), -1 * var(--offset));
+  --centred: max(0, min(1 - var(--abs), 1));
+}
+/* "Start" snap mode (settings toggle) */
+.carousel.snap-start .slide { scroll-snap-align: start; }
+.carousel.snap-start .carousel__viewport { scroll-padding-inline-start: var(--edge); }
+
+.slide__inner {
+  /* No fixed aspect ratio — height is computed (and max-height
+     clamped) in JS. Real offer content will drive this later. */
+  height: var(--card-h, 320px);
+  border-radius: var(--card-radius);
+  background: #fff;         /* white cards on the 3% unit fill */
+  display: grid;
+  place-items: center;
+  overflow: hidden;
+
+  /* Scroll-driven card treatment — pure functions of --centred, so
+     dim/scale/shadow scrub with the scroll exactly like the text.
+     Amounts are 0..1 from config (0 = effect off). NO transitions on
+     these: the scroll is the animation. */
+  opacity: calc(1 - var(--dim-amt, 0) * (1 - var(--centred)));
+  transform: translateY(var(--hover-y))
+             scale(calc((1 - var(--scale-amt, 0) * (1 - var(--centred))) * var(--hover-s)));
+  box-shadow:
+    0 0 0 1px rgba(0, 0, 0, 0.07),   /* ring replaces the old border */
+    0 12px 30px rgba(0, 0, 0, calc(var(--shadow-amt, 0) * var(--centred))),
+    0 10px 44px rgba(0, 0, 0, var(--hover-glow));
+  /* only the HOVER vars animate (registered via @property) */
+  transition: --hover-y .25s var(--ease-apple),
+              --hover-s .25s var(--ease-apple),
+              --hover-glow .25s var(--ease-apple);
+}
+
+/* ---------- hover effects (active card only) ---------- */
+.carousel.hover-lift .slide.is-current .slide__inner:hover {
+  --hover-y: -6px;
+  --hover-glow: 0.10;
+}
+.carousel.hover-grow .slide.is-current .slide__inner:hover {
+  --hover-s: 1.02;
+}
+.carousel.hover-glow .slide.is-current .slide__inner:hover {
+  --hover-glow: 0.18;
+}
+.slide__number {
+  font-size: clamp(44px, 9vw, 88px);
+  font-weight: 700;
+  color: var(--ink);
+  letter-spacing: -0.03em;
+  font-variant-numeric: tabular-nums;
+}
+
+/* ---------- text (card content) transitions ----------
+   Stand-in for the offer copy in step 2. ALL modes are scroll-driven
+   (Apple's mechanism): pure functions of the slide's shared --offset /
+   --abs vars, scrubbed live by the scroll — no timed animation.
+   Opacity always follows 1 − |offset| × fade-rate; the modes differ
+   in what the text DOES while it fades. */
+/* Contract: any element with .fx-text inside a slide gets the shell's
+   scroll-driven text treatment — packs opt their copy in with a class. */
+.carousel.textfx-parallax .fx-text,
+.carousel.textfx-fade .fx-text,
+.carousel.textfx-fade-up .fx-text,
+.carousel.textfx-scale .fx-text {
+  opacity: calc(1 - var(--abs) * var(--fade-rate, 3.2));
+  transition: none;
+}
+/* Parallax (Apple): x = offset × 2.6 × travel */
+.carousel.textfx-parallax .fx-text {
+  transform: translateX(calc((var(--offset) + var(--offset) * 1.6) * var(--caption-offset, 120px)));
+}
+/* Fade up: rises into place as the card centres */
+.carousel.textfx-fade-up .fx-text {
+  transform: translateY(calc(var(--abs) * var(--text-rise, 28px)));
+}
+/* Scale: grows into place as the card centres (clamped ≥ 0) */
+.carousel.textfx-scale .fx-text {
+  transform: scale(max(0, calc(1 - var(--abs) * var(--text-scale, 0.5))));
+}
+
+/* ============================================================
+   CARD PACK: skeleton — generic title / description / button /
+   graphics container, wireframe grey ON PURPOSE (not a design).
+   Owns its responsive rules via container queries: the card
+   responds to CARD width, not viewport width.
+   ============================================================ */
+/* the SLIDE is the query container (an element can't query itself,
+   so the container must be an ancestor of .card-skel) */
+.pack-skeleton .slide { container-type: inline-size; }
+.card-skel {
+  display: flex;
+  align-items: stretch;
+  gap: 44px;
+  padding: 28px;
+}
+.card-skel__graphic {
+  flex: 1.2;
+  min-height: 0;
+  /* concentric: inner radius = outer − padding (floored so it never
+     goes square); stays correct as the radius slider moves */
+  border-radius: max(8px, calc(var(--card-radius) - 28px));
+  background: rgba(0, 0, 0, 0.06);   /* image placeholder: 6% black */
+  display: grid;
+  place-items: center;
+}
+.card-skel__body {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  gap: 12px;
+}
+.thanks-proto .card-skel__title { font-size: 24px; font-weight: 700; letter-spacing: -0.02em; text-wrap: balance; color: var(--ink); font-family: inherit; line-height: 1.25; }
+.thanks-proto .card-skel__desc { color: var(--ink-soft); font-size: 14.5px; line-height: 1.45; text-wrap: pretty; }
+.card-skel__btn {
+  align-self: flex-start;
+  font: inherit;
+  font-size: 13.5px;
+  font-weight: 600;
+  color: #fff;
+  background: var(--ink);
+  border: none;
+  border-radius: 999px;
+  padding: 10px 18px;
+  cursor: pointer;
+  transition: background-color .15s ease, scale .15s ease;
+}
+.card-skel__btn:hover { background: #333; }
+.card-skel__btn:active { scale: 0.96; }
+/* portrait stack on narrow CARDS (not viewports) —
+   threshold matches heightRatio in the skeleton pack (carousel.js) */
+@container (max-width: 400px) {
+  .card-skel { flex-direction: column; gap: 24px; padding: 20px; }
+  .card-skel__graphic { flex: 1 1 auto; width: 100%; }
+  .card-skel__body { flex: none; }
+}
+
+/* Demo graphic animation — runs when the card ACTIVATES (settles
+   as current), via the shell's .is-active class. */
+.skel-chart {
+  display: flex;
+  align-items: flex-end;
+  gap: 10px;
+  width: 50%;
+  height: 55%;
+}
+.skel-bar {
+  flex: 1;
+  height: calc(var(--h, 1) * 100%);
+  background: rgba(0, 0, 0, 0.06);   /* placeholder bars: 6% black */
+  border-radius: 6px;
+  transform: scaleY(0);
+  transform-origin: bottom;
+  opacity: 0;
+}
+.pack-skeleton .slide.is-active .skel-bar { animation: skel-grow .7s var(--ease-apple) both; }
+.pack-skeleton .slide.is-active .skel-bar:nth-child(2) { animation-delay: .12s; }
+.pack-skeleton .slide.is-active .skel-bar:nth-child(3) { animation-delay: .24s; }
+/* replay policy "once": played cards hold their end state, no re-run */
+.carousel.replay-once .slide[data-played] .skel-bar {
+  transform: scaleY(1);
+  opacity: 1;
+  animation: none;
+}
+@keyframes skel-grow {
+  from { transform: scaleY(0); opacity: 0; }
+  to   { transform: scaleY(1); opacity: 1; }
+}
+
+/* ============================================================
+   Segmented progress indicator (Apple dotnav — normal flow)
+   ============================================================ */
+/* pagination row: dots + play/pause icon, centred as one group */
+.carousel__pagination {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  gap: 12px;                     /* clears the dot + button hit areas */
+  margin-top: 26px;
+  padding: 0 16px;
+}
+.carousel__progress {
+  display: flex;
+  align-items: center;
+  gap: 10px;                     /* visually tighter than Apple's 16px;
+                                    hit targets preserved via ::before */
+}
+/* toggles (config panel) */
+.carousel.no-title .carousel__head { display: none; }
+.carousel.no-playpause .carousel__playpause { display: none; }
+.progress-seg {
+  position: relative;
+  /* Apple's dotnav width formula (copied from overview.built.css):
+     the pill hands off between dots CONTINUOUSLY with the scroll —
+     width is a pure function of --autoplay-progress, no transition. */
+  --item-progress: calc(var(--item-index, 0) - var(--autoplay-progress, 0));
+  --abs-item-progress: max(var(--item-progress), -1 * var(--item-progress));
+  --item-expand: max(0, min(1 - var(--abs-item-progress), 1));
+  width: calc(var(--dot-size) + (var(--dot-active-width) - var(--dot-size)) * var(--item-expand));
+  height: var(--dot-size);
+  border-radius: 999px;
+  background: var(--dot-bg);
+  border: none;
+  padding: 0;
+  cursor: pointer;
+  flex: none;
+  /* Apple transitions ONLY background-color (250ms linear); scale is press feedback */
+  transition: background-color .25s linear, scale .15s ease;
+}
+/* extend the tiny dot to a 40px-tall hit area (±half-gap wide, so
+   neighbouring hit areas touch but never overlap) */
+.progress-seg::before {
+  content: "";
+  position: absolute;
+  /* tighter 10px visual gap → narrower horizontal budget (half-gap −1
+     so neighbours never touch); compensated with a TALLER 48px target */
+  top: -20px; bottom: -20px;
+  left: -4px; right: -4px;
+}
+.progress-seg:hover:not(.is-current) { background: var(--dot-bg-hover); }
+.progress-seg:active { scale: 0.96; }
+.progress-seg.is-current { cursor: default; }
+/* clipped track holds the fill (the button itself stays unclipped
+   so its hit-area pseudo-element can extend past it) */
+.progress-seg__track {
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+  overflow: hidden;
+}
+.progress-seg__fill {
+  position: absolute;
+  inset: 0;
+  transform-origin: left center;
+  transform: scaleX(var(--fill, 0));
+  background: var(--dot-active-fill);
+  border-radius: inherit;
+  /* fill itself is driven per-frame by JS (linear, like Apple) */
+  transition: opacity .18s linear;
+}
+/* only the current dot shows its dark fill; others stay grey circles */
+.progress-seg:not(.is-current) .progress-seg__fill { opacity: 0; }
+/* while the user is scrubbing, position is in flux → the TIME fill
+   is meaningless, so it fades out; it regrows from 0 after settle */
+.carousel.is-scrubbing .progress-seg__fill { opacity: 0; }
+
+/* ============================================================
+   Settings cog + panel
+   ============================================================ */
+.settings-cog {
+  position: fixed;
+  right: 20px; bottom: 20px;
+  width: 46px; height: 46px;
+  border-radius: 50%;
+  border: 1px solid var(--line);
+  background: #fff;
+  color: var(--ink);
+  display: grid;
+  place-items: center;
+  cursor: pointer;
+  box-shadow: 0 4px 16px rgba(0,0,0,0.12);
+  z-index: 2147483000;   /* above anything a host page stacks */
+  transition: transform .2s var(--ease-apple), background .15s ease;
+}
+.settings-cog:hover { background: #f5f5f7; }
+.settings-cog:active { transform: scale(0.96); }
+
+.settings-panel {
+  position: fixed;
+  right: 20px; bottom: 78px;
+  width: 384px;   /* fits all six tabs in one row */
+  max-width: calc(100vw - 40px);
+  max-height: calc(100vh - 120px);
+  overflow-y: auto;
+  background: #fff;
+  border-radius: 16px;
+  /* ring + layered depth instead of a hard border */
+  box-shadow:
+    0 0 0 1px rgba(0, 0, 0, 0.06),
+    0 2px 8px rgba(0, 0, 0, 0.06),
+    0 12px 40px rgba(0, 0, 0, 0.14);
+  z-index: 2147483001;   /* above the cog, above host chrome */
+  transform: translateY(8px) scale(0.98);
+  opacity: 0;
+  pointer-events: none;
+  transition: transform .22s var(--ease-apple), opacity .22s var(--ease-apple);
+}
+.settings-panel.is-open {
+  transform: translateY(0) scale(1);
+  opacity: 1;
+  pointer-events: auto;
+}
+.settings-panel__head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 16px 18px;
+  border-bottom: 1px solid var(--line);
+  position: sticky; top: 0; background: #fff;
+}
+.settings-panel__head h3 { font-size: 15px; font-weight: 700; }
+.settings-panel__close {
+  border: none; background: none; font-size: 22px; line-height: 1;
+  color: var(--ink-soft); cursor: pointer; padding: 0 4px;
+  position: relative;
+}
+/* extend the small × to a comfortable hit area */
+.settings-panel__close::before {
+  content: "";
+  position: absolute;
+  inset: -9px;
+}
+.settings-panel__body { padding: 8px 18px 18px; }
+
+/* ---------- settings tabs ---------- */
+.settings-tabs {
+  display: flex;
+  gap: 4px;
+  padding: 10px 14px 0;
+  border-bottom: 1px solid var(--line);
+  position: sticky; top: 53px;          /* below the panel head */
+  background: #fff;
+  z-index: 1;
+}
+.settings-tab {
+  border: none;
+  background: none;
+  font: inherit;
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--ink-soft);
+  padding: 8px 10px;
+  cursor: pointer;
+  border-radius: 8px 8px 0 0;
+  border-bottom: 2px solid transparent;
+  margin-bottom: -1px;
+}
+.settings-tab:hover { color: var(--ink); }
+.settings-tab.is-active {
+  color: var(--ink);
+  border-bottom-color: var(--ink);
+}
+
+.setting {
+  padding: 12px 0;
+  border-bottom: 1px solid #f0f0f0;
+}
+.setting:last-child { border-bottom: none; }
+.setting__row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+.setting__label { font-size: 13.5px; font-weight: 600; }
+.setting__val { font-size: 12px; color: var(--ink-soft); font-variant-numeric: tabular-nums; }
+.setting input[type="range"] { width: 100%; margin-top: 8px; accent-color: var(--ink); }
+.setting select {
+  font: inherit; font-size: 13px; padding: 4px 8px;
+  border: 1px solid var(--line); border-radius: 8px; background: #fff;
+}
+
+/* ============================================================
+   Defend the settings panel against host-page CSS.
+   Hosts style bare elements (button, select, input, h3…) — this
+   blanket + explicit pins keep the panel looking like itself.
+   Order matters: re-pins come AFTER the blanket.
+   ============================================================ */
+.thanks-proto .settings-panel,
+.thanks-proto .settings-panel * {
+  font-family: "Gramatika", -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+  letter-spacing: normal;
+  text-transform: none;
+  line-height: 1.4;
+  text-align: left;
+  text-shadow: none;
+  float: none;
+}
+.thanks-proto .settings-panel h3 {
+  font-size: 15px; font-weight: 700; color: var(--ink); margin: 0;
+}
+.thanks-proto .settings-panel select {
+  font-size: 13px; font-weight: 400; color: #1d1d1f;
+  background-color: #fff; background-image: none;
+  border: 1px solid #e5e5e5; border-radius: 8px;
+  padding: 4px 8px; margin: 0;
+  height: auto; width: auto; max-width: 190px;
+  appearance: auto; box-shadow: none; cursor: pointer;
+}
+.thanks-proto .settings-panel input[type="range"] {
+  width: 100%; height: auto; padding: 0;
+  background: transparent; border: none; box-shadow: none;
+  appearance: auto; accent-color: #1d1d1f;
+}
+.thanks-proto .settings-panel input[type="text"],
+.thanks-proto .settings-panel textarea {
+  background-color: #fff; color: #1d1d1f;
+  box-shadow: none; height: auto; margin: 0;
+}
+.thanks-proto .settings-panel button {
+  background-image: none; box-shadow: none; min-width: 0; min-height: 0;
+}
+/* re-pin details the blanket flattens */
+.thanks-proto .settings-panel .settings-panel__close { line-height: 1; font-size: 22px; }
+.thanks-proto .settings-panel .settings-subhead { font-size: 11px; letter-spacing: .06em; text-transform: uppercase; }
+.thanks-proto .settings-panel .preset-json { font: 11px/1.5 ui-monospace, SFMono-Regular, Menlo, monospace; }
+.thanks-proto .settings-panel .tc-btn--primary { background-color: var(--ink); color: #fff; }
+
+/* ---------- presets ---------- */
+.preset-save {
+  display: flex;
+  gap: 8px;
+  margin: 14px 0 10px;
+}
+.preset-save input[type="text"] {
+  flex: 1;
+  min-width: 0;
+  font: inherit;
+  font-size: 13px;
+  padding: 7px 10px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+}
+.tc-btn {
+  font: inherit;
+  font-size: 12.5px;
+  font-weight: 600;
+  padding: 7px 12px;
+  border-radius: 8px;
+  border: 1px solid var(--line);
+  background: #fff;
+  color: var(--ink);
+  transition: background-color .15s ease, scale .15s ease;
+  cursor: pointer;
+  white-space: nowrap;
+}
+.tc-btn:hover { background: #f5f5f7; }
+.tc-btn:active { scale: 0.96; }
+.tc-btn--primary { background: var(--ink); color: #fff; border-color: var(--ink); }
+.tc-btn--primary:hover { background: #333; }
+.preset-item {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 9px 0;
+  border-bottom: 1px solid #f0f0f0;
+}
+.preset-item__name {
+  flex: 1;
+  font-size: 13.5px;
+  font-weight: 600;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.preset-json {
+  width: 100%;
+  height: 84px;
+  font: 11px/1.5 ui-monospace, SFMono-Regular, Menlo, monospace;
+  padding: 8px 10px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  resize: vertical;
+  color: var(--ink);
+}
+.preset-note {
+  font-size: 11.5px;
+  color: var(--ink-soft);
+  margin-top: 8px;
+  line-height: 1.5;
+}
+.settings-subhead {
+  font-size: 11px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: .06em;
+  color: var(--ink-soft);
+  margin: 18px 0 6px;
+}
+
+/* iOS-style switch */
+.switch { position: relative; width: 42px; height: 25px; flex: none; }
+.switch input { position: absolute; opacity: 0; width: 100%; height: 100%; margin: 0; cursor: pointer; }
+.switch__track {
+  position: absolute; inset: 0; border-radius: 999px; background: #e5e5ea;
+  transition: background .2s ease;
+}
+.switch__track::after {
+  content: ""; position: absolute; top: 2px; left: 2px;
+  width: 21px; height: 21px; border-radius: 50%; background: #fff;
+  box-shadow: 0 1px 3px rgba(0,0,0,0.25);
+  transition: transform .2s var(--ease-apple);
+}
+.switch input:checked + .switch__track { background: #34c759; }
+.switch input:checked + .switch__track::after { transform: translateX(17px); }
+
+/* ============================================================
+   Reduced motion
+   ============================================================ */
+@media (prefers-reduced-motion: reduce) {
+  .slide__inner, .progress-seg, .progress-seg__fill, .settings-panel,
+  .carousel__playpause svg { transition: none; }
+  .skel-bar { animation: none !important; transform: scaleY(1); opacity: 1; }
+}
