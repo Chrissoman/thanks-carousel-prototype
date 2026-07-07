@@ -1,0 +1,82 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Thanks Offers Carousel — Prototype</title>
+  <style>
+    /* Page chrome for the bare (no host page) view only —
+       the embed itself carries all of its own styles. */
+    html, body { margin: 0; padding: 0; }
+    body { background: #fff; padding: 48px 0; }
+  </style>
+</head>
+<body>
+
+  <!-- The embed fragment (embed.html) is inserted here by server.js -->
+  <script>window.__THANKS_STATIC__=true</script><!-- ============================================================
+     THANKS CAROUSEL EMBED — single source of truth.
+     Served into index.html (marker <!--THANKS_EMBED--\>) and
+     injected into saved partner pages by server.js.
+     Everything is scoped under .thanks-proto; absolute asset URLs
+     so it works from any route.
+     ============================================================ -->
+<div class="thanks-proto">
+
+  <section class="carousel" aria-roledescription="carousel" aria-label="Exclusive offers for you">
+
+    <div class="carousel__head">
+      <h2 class="carousel__title">You've unlocked rewards and offers...</h2>
+    </div>
+
+    <!-- Scroll viewport: native scroll-snap handles trackpad + swipe -->
+    <div class="carousel__viewport" data-viewport tabindex="0" aria-label="Offers, use arrow keys to navigate">
+      <ul class="carousel__track" data-track>
+        <!-- slides injected by JS -->
+      </ul>
+    </div>
+
+    <!-- Pagination row: dots + bare play/pause icon -->
+    <div class="carousel__pagination">
+      <div class="carousel__progress" data-progress role="tablist" aria-label="Choose offer">
+        <!-- dots injected by JS -->
+      </div>
+      <button class="carousel__playpause" type="button" aria-label="Pause offers" data-playpause>
+        <svg class="icon-pause" viewBox="0 0 24 24" aria-hidden="true"><rect x="7" y="5" width="3.4" height="14" rx="1.1"/><rect x="13.6" y="5" width="3.4" height="14" rx="1.1"/></svg>
+        <svg class="icon-play" viewBox="0 0 24 24" aria-hidden="true"><path d="M8 5.5v13a1 1 0 0 0 1.53.85l10-6.5a1 1 0 0 0 0-1.7l-10-6.5A1 1 0 0 0 8 5.5Z"/></svg>
+        <svg class="icon-replay" viewBox="0 0 24 24" aria-hidden="true"><path d="M12 5V2.5a.5.5 0 0 0-.82-.39l-4.5 3.5a.5.5 0 0 0 0 .78l4.5 3.5A.5.5 0 0 0 12 9.5V7a5.5 5.5 0 1 1-5.48 6l-1.99.25A7.5 7.5 0 1 0 12 5Z"/></svg>
+      </button>
+    </div>
+
+  </section>
+
+  <!-- Settings cog + fine-tuning panel (fixed position, prototype-only) -->
+  <button class="settings-cog" type="button" aria-label="Open settings" data-settings-open>
+    <svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+      <circle cx="12" cy="12" r="3"/>
+      <path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1Z"/>
+    </svg>
+  </button>
+
+  <aside class="settings-panel" data-settings-panel aria-hidden="true" aria-label="Carousel settings">
+    <div class="settings-panel__head">
+      <h3>Fine-tune</h3>
+      <button type="button" class="settings-panel__close" aria-label="Close settings" data-settings-close>&times;</button>
+    </div>
+    <div class="settings-tabs" data-settings-tabs role="tablist" aria-label="Setting categories">
+      <!-- tabs injected by JS -->
+    </div>
+    <div class="settings-panel__body" data-settings-body>
+      <!-- controls injected by JS -->
+    </div>
+  </aside>
+
+  <!-- relative paths: resolve correctly at "/" (local server) AND
+       under a subpath (GitHub Pages project site) -->
+  <link rel="stylesheet" href="styles.css" />
+  <script src="carousel.js" defer></script>
+</div>
+
+
+</body>
+</html>

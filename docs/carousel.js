@@ -1,0 +1,889 @@
+/* ============================================================
+   Thanks offers carousel — interaction prototype
+   Modelled on Apple's "Get the highlights" media-card gallery.
+   ============================================================ */
+
+(function () {
+  "use strict";
+
+  const REDUCED_MOTION = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+
+  /* ---------- tunable config (editable via settings panel) ---------- */
+  const config = {
+    slides: 6,
+    autoplay: true,
+    dwell: 4000,          // ms a slide stays before advancing
+    transition: 1000,     // ms of the eased scroll animation (Apple: 1s)
+    easing: "0.4,0,0.6,1",// Apple's standard easing
+    peekPct: 4,           // neighbour peek, % of container width
+    gap: 20,              // px between slides
+    maxWidth: 1100,       // px cap on card width (surplus becomes peek)
+    maxHeight: 400,       // px cap on card height
+    snap: "center",       // center | start
+    cardRadius: 20,       // px card corner radius
+    unitRadius: 0,        // px outer wrapper corner radius
+    textFx: "parallax",   // parallax | fade | fade-up | scale | none
+    travelPct: 12,        // parallax travel, % of card width (Apple's 120px
+                          // ≈ 12% of their gallery card — scales with size)
+    fadeRate: 3.2,        // opacity falloff — Apple's constant
+    textRise: 28,         // px rise for fade-up mode
+    textScale: 50,        // % shrink at one card away, for scale mode
+    dimAmount: 20,        // % dim of off-centre cards (0 = off)
+    scaleAmount: 2,       // % shrink of off-centre cards (0 = off)
+    shadowAmount: 0,      // % shadow opacity on centred card (0 = off)
+    hoverFx: "none",      // none | lift | grow | glow
+    pauseOnHoverActive: false,
+    showTitle: true,      // section title visible
+    showPlayPause: true,  // play/pause icon visible in pagination
+    endMode: "rewind",    // rewind | none (stop + replay) | pingpong
+    cycles: 0,            // stop autoplay after N full passes (0 = forever)
+    cardPack: "numbers",  // numbers | skeleton
+    replayAnim: "every",  // every | once — card animation replay policy
+    theme: "auto",        // auto (detect host surface) | light | dark
+  };
+  const DEFAULTS = { ...config };   // pristine copy for reset / preset merging
+
+  /* ============================================================
+     CARD PACKS — the card-side of the shell/card contract.
+     A pack provides: render(i) markup, and a heightRatio(width)
+     so each design can own its responsive rules (incl. portrait
+     mobile). Packs may also use, inside their markup/CSS:
+       - .fx-text            → element gets the shell's text fx
+       - .is-active class    → set when the card SETTLES as current
+       - card:activate / card:deactivate DOM events (bubbles)
+       - the shared scroll vars --offset / --abs / --centred
+     ============================================================ */
+  const CARD_PACKS = {
+    numbers: {
+      heightRatio: () => 0.75,
+      render: (i) => `<div class="slide__inner"><span class="slide__number fx-text">${i + 1}</span></div>`,
+    },
+    skeleton: {
+      // portrait on narrow cards, landscape on wide — the pack owns this
+      // (threshold matches the @container query in styles.css)
+      heightRatio: (w) => (w < 400 ? 1.25 : 0.7),
+      render: (i) => `
+        <div class="slide__inner card-skel">
+          <div class="card-skel__graphic" aria-hidden="true">
+            <div class="skel-chart">
+              <div class="skel-bar" style="--h:.55"></div>
+              <div class="skel-bar" style="--h:.8"></div>
+              <div class="skel-bar" style="--h:1"></div>
+            </div>
+          </div>
+          <div class="card-skel__body fx-text">
+            <h3 class="card-skel__title">Offer title ${i + 1}</h3>
+            <p class="card-skel__desc">Supporting description copy for this offer goes here.</p>
+            <button type="button" class="card-skel__btn">Claim offer</button>
+          </div>
+        </div>`,
+    },
+  };
+
+  /* ---------- persistence (current config + named presets) ---------- */
+  // v4: key bumped so stale persisted configs don't shadow the new
+  // defaults (bump this whenever DEFAULTS change on purpose)
+  const CURRENT_KEY = "thanks-carousel-config-v4";
+  const PRESET_KEY  = "thanks-carousel-presets";
+  function persistCurrent() {
+    try { localStorage.setItem(CURRENT_KEY, JSON.stringify(config)); } catch {}
+  }
+  function restoreCurrent() {
+    try {
+      const saved = JSON.parse(localStorage.getItem(CURRENT_KEY));
+      if (saved) Object.keys(DEFAULTS).forEach((k) => { if (k in saved) config[k] = saved[k]; });
+    } catch {}
+  }
+  function getPresets() {
+    try { return JSON.parse(localStorage.getItem(PRESET_KEY)) || {}; } catch { return {}; }
+  }
+  function setPresets(p) {
+    try { localStorage.setItem(PRESET_KEY, JSON.stringify(p)); } catch {}
+  }
+  /* Apply a preset (or defaults): known keys only, missing keys reset */
+  function applyPreset(p) {
+    Object.keys(DEFAULTS).forEach((k) => { config[k] = (k in p) ? p[k] : DEFAULTS[k]; });
+    persistCurrent();
+    applyConfig(true);
+  }
+
+  const root     = document.querySelector(".thanks-proto");
+  const section  = document.querySelector(".carousel");
+  const viewport = section.querySelector("[data-viewport]");
+  const track    = section.querySelector("[data-track]");
+  const progress = section.querySelector("[data-progress]");
+  const playBtn  = section.querySelector("[data-playpause]");
+
+  /* ============================================================
+     cubic-bezier easing (so we can copy Apple's timing exactly)
+     ============================================================ */
+  function cubicBezier(x1, y1, x2, y2) {
+    const cx = 3 * x1, bx = 3 * (x2 - x1) - cx, ax = 1 - cx - bx;
+    const cy = 3 * y1, by = 3 * (y2 - y1) - cy, ay = 1 - cy - by;
+    const fx = (t) => ((ax * t + bx) * t + cx) * t;
+    const fy = (t) => ((ay * t + by) * t + cy) * t;
+    const dfx = (t) => (3 * ax * t + 2 * bx) * t + cx;
+    return (x) => {
+      let t = x;
+      for (let i = 0; i < 6; i++) {           // Newton–Raphson solve
+        const d = dfx(t);
+        if (Math.abs(d) < 1e-6) break;
+        t -= (fx(t) - x) / d;
+        t = Math.min(1, Math.max(0, t));
+      }
+      return fy(t);
+    };
+  }
+  let ease = cubicBezier(0.4, 0, 0.6, 1);
+  function setEasing(str) {
+    const p = str.split(",").map(Number);
+    if (p.length === 4 && p.every((n) => !isNaN(n))) ease = cubicBezier(p[0], p[1], p[2], p[3]);
+  }
+
+  /* ---------- state ---------- */
+  let slides = [];
+  let segments = [];
+  let current = 0;
+  let autoplayOn = config.autoplay && !REDUCED_MOTION;
+  let hoverPause = false;              // hovering the ACTIVE card
+  let programmatic = false;            // we're driving the scroll
+
+  let rafProgress = null;
+  let segStartTs = 0;
+  let elapsedBeforePause = 0;
+
+  let scrollRaf = null;
+  let programmaticClear = null;
+
+  // end-of-carousel run state
+  let dir = 1;                         // pingpong direction
+  let cycleCount = 0;                  // completed full passes
+  let ended = false;                   // autoplay finished (replay shown)
+
+  // activation: which slide has SETTLED as current (drives card anims)
+  let activatedIndex = -1;
+
+  const effectivePlaying = () => autoplayOn && !hoverPause && !ended;
+
+  /* ============================================================
+     build / rebuild slides + dots
+     ============================================================ */
+  function build() {
+    track.innerHTML = "";
+    progress.innerHTML = "";
+    slides = [];
+    segments = [];
+    for (let i = 0; i < config.slides; i++) {
+      const li = document.createElement("li");
+      li.className = "slide";
+      li.dataset.index = i;
+      li.style.setProperty("--progress", i);   // its index, for the parallax calc
+      li.innerHTML = CARD_PACKS[config.cardPack].render(i);
+      // pause only while hovering the ACTIVE card
+      li.addEventListener("pointerenter", () => {
+        if (config.pauseOnHoverActive && i === current) { hoverPause = true; pauseProgress(); }
+      });
+      li.addEventListener("pointerleave", () => {
+        if (i === current) { hoverPause = false; resumeProgress(); }
+      });
+      track.appendChild(li);
+      slides.push(li);
+
+      const seg = document.createElement("button");
+      seg.className = "progress-seg";
+      seg.type = "button";
+      seg.setAttribute("role", "tab");
+      seg.setAttribute("aria-label", `Offer ${i + 1}`);
+      seg.dataset.index = i;
+      seg.style.setProperty("--item-index", i);   // feeds Apple's width formula
+      seg.innerHTML = `<span class="progress-seg__track"><span class="progress-seg__fill"></span></span>`;
+      seg.addEventListener("click", () => userGoTo(i));
+      progress.appendChild(seg);
+      segments.push(seg);
+    }
+    if (current > config.slides - 1) current = config.slides - 1;
+    activatedIndex = -1;               // fresh DOM → activation state resets
+  }
+
+  /* ============================================================
+     activation — fires when a card SETTLES as current (not while
+     scrubbing past it). Packs hook animations off .is-active or
+     the card:activate / card:deactivate events.
+     ============================================================ */
+  function commitActivation(idx = current) {
+    if (activatedIndex === idx) return;
+    const prev = slides[activatedIndex];
+    if (prev) {
+      prev.classList.remove("is-active");
+      prev.dataset.played = "1";       // for the replay-once policy
+      prev.dispatchEvent(new CustomEvent("card:deactivate", { bubbles: true, detail: { index: activatedIndex } }));
+    }
+    const next = slides[idx];
+    if (next) {
+      next.classList.add("is-active");
+      next.dispatchEvent(new CustomEvent("card:activate", { bubbles: true, detail: { index: idx } }));
+    }
+    activatedIndex = idx;
+  }
+
+  /* During MANUAL scrolling, don't wait for the settle debounce (the
+     momentum tail makes the card animation feel broken-late). Activate
+     as soon as the nearest card is close to centre AND the scroll has
+     decelerated — flings through cards stay fast, so they don't fire. */
+  function maybeEarlyActivate() {
+    const idx = nearestIndex();
+    if (idx === activatedIndex) return;
+    if (Math.abs(scrollVelocity) > 0.35) return;      // px/ms — still travelling
+    const step = cardWpx + config.gap;
+    if (step <= 0) return;
+    const offset = Math.abs(viewport.scrollLeft / step - idx);
+    if (offset < 0.3) commitActivation(idx);
+  }
+
+  /* ============================================================
+     geometry (viewport-relative so page layout can't skew it)
+     ============================================================ */
+  function maxScroll() { return viewport.scrollWidth - viewport.clientWidth; }
+
+  function targetFor(index) {
+    const slide = slides[index];
+    const vpRect = viewport.getBoundingClientRect();
+    const sRect = slide.getBoundingClientRect();
+    const leftInContent = viewport.scrollLeft + (sRect.left - vpRect.left);
+    let target;
+    if (config.snap === "center") {
+      target = leftInContent - (viewport.clientWidth - slide.clientWidth) / 2;
+    } else {
+      target = leftInContent - effectiveEdge;   // start, honouring the gutter
+    }
+    return Math.max(0, Math.min(target, maxScroll()));
+  }
+
+  function nearestIndex() {
+    const vpRect = viewport.getBoundingClientRect();
+    const center = vpRect.left + viewport.clientWidth / 2;
+    let best = 0, bestDist = Infinity;
+    for (let i = 0; i < slides.length; i++) {
+      const r = slides[i].getBoundingClientRect();
+      const d = Math.abs((r.left + r.width / 2) - center);
+      if (d < bestDist) { bestDist = d; best = i; }
+    }
+    return best;
+  }
+
+  /* ============================================================
+     eased programmatic scroll (Apple copies scroll-behavior:none
+     and animates the advance itself — so do we)
+     ============================================================ */
+  function animateScrollTo(target) {
+    if (scrollRaf) { cancelAnimationFrame(scrollRaf); scrollRaf = null; }
+    const start = viewport.scrollLeft;
+    const dist = target - start;
+
+    programmatic = true;
+    clearTimeout(programmaticClear);
+
+    if (REDUCED_MOTION || config.transition <= 0 || Math.abs(dist) < 1) {
+      viewport.scrollLeft = target;
+      commitActivation();
+      programmaticClear = setTimeout(() => { programmatic = false; }, 60);
+      return;
+    }
+    // disable snap during the tween so it doesn't fight us, then restore
+    viewport.style.scrollSnapType = "none";
+    const t0 = performance.now();
+    const dur = config.transition;
+    function step(now) {
+      const p = Math.min((now - t0) / dur, 1);
+      viewport.scrollLeft = start + dist * ease(p);
+      publishProgress();               // keep the parallax fed during the tween
+      if (p < 1) {
+        scrollRaf = requestAnimationFrame(step);
+      } else {
+        scrollRaf = null;
+        viewport.style.scrollSnapType = "";       // re-enable mandatory snap
+        commitActivation();                       // the card has LANDED
+        programmaticClear = setTimeout(() => { programmatic = false; }, 60);
+      }
+    }
+    scrollRaf = requestAnimationFrame(step);
+  }
+
+  function goTo(index) {
+    current = Math.max(0, Math.min(index, config.slides - 1));
+    animateScrollTo(targetFor(current));
+    render();
+  }
+  function userGoTo(index) {
+    if (index < 0 || index > config.slides - 1) return;
+    goTo(index);
+    restartProgress();
+  }
+
+  /* ============================================================
+     visual state
+     ============================================================ */
+  function render() {
+    slides.forEach((s, i) => s.classList.toggle("is-current", i === current));
+    segments.forEach((seg, i) => {
+      seg.classList.toggle("is-current", i === current);
+      seg.setAttribute("aria-selected", i === current ? "true" : "false");
+      const fill = seg.querySelector(".progress-seg__fill");
+      if (i !== current) fill.style.setProperty("--fill", "0");   // non-current: no fill
+    });
+    section.classList.toggle("is-paused", !autoplayOn);
+    section.classList.toggle("is-ended", ended);
+    playBtn.setAttribute("aria-label",
+      ended ? "Replay offers" : autoplayOn ? "Pause offers" : "Play offers");
+  }
+
+  /* ============================================================
+     autoplay progress (rAF → exact pause/resume; linear fill)
+     ============================================================ */
+  function setCurrentFill(p) {
+    segments[current].querySelector(".progress-seg__fill").style.setProperty("--fill", String(p));
+  }
+  function progressTick(now) {
+    if (!effectivePlaying()) { rafProgress = null; return; }
+    const elapsed = elapsedBeforePause + (now - segStartTs);
+    const p = Math.min(elapsed / config.dwell, 1);
+    setCurrentFill(p);
+    if (p >= 1) { advance(); return; }
+    rafProgress = requestAnimationFrame(progressTick);
+  }
+
+  /* ---------- end-of-carousel behaviour ----------
+     rewind   : scroll back to the start and go again
+     none     : stop on the last card, button becomes replay ⟳
+     pingpong : reverse direction at each end
+     cycles>0 : after N full passes, stop (as "none")             */
+  const cyclesReached = () => config.cycles > 0 && cycleCount >= config.cycles;
+  function advance() {
+    const last = config.slides - 1;
+    if (config.endMode === "none") {
+      if (current >= last) { endRun(); return; }
+      goTo(current + 1); restartProgress(); return;
+    }
+    if (config.endMode === "pingpong") {
+      let next = current + dir;
+      if (next > last || next < 0) {
+        cycleCount++;
+        if (cyclesReached()) { endRun(); return; }
+        dir = -dir;
+        next = current + dir;
+      }
+      goTo(next); restartProgress(); return;
+    }
+    // rewind (default)
+    if (current >= last) {
+      cycleCount++;
+      if (cyclesReached()) { endRun(); return; }
+      goTo(0); restartProgress(); return;
+    }
+    goTo(current + 1); restartProgress();
+  }
+  function endRun() {
+    ended = true;
+    setCurrentFill(0);
+    render();
+  }
+  function replay() {
+    ended = false;
+    cycleCount = 0;
+    dir = 1;
+    autoplayOn = !REDUCED_MOTION;
+    goTo(0);
+    restartProgress();
+    render();
+  }
+  function restartProgress() {
+    if (rafProgress) cancelAnimationFrame(rafProgress);
+    rafProgress = null;
+    elapsedBeforePause = 0;
+    setCurrentFill(0);
+    if (effectivePlaying()) { segStartTs = performance.now(); rafProgress = requestAnimationFrame(progressTick); }
+  }
+  function pauseProgress() {
+    if (rafProgress) { elapsedBeforePause += performance.now() - segStartTs; cancelAnimationFrame(rafProgress); rafProgress = null; }
+  }
+  function resumeProgress() {
+    if (!rafProgress && effectivePlaying()) { segStartTs = performance.now(); rafProgress = requestAnimationFrame(progressTick); }
+  }
+
+  /* ============================================================
+     manual scroll: detect settle, sync state
+     ============================================================ */
+  function onSettle() {
+    section.classList.remove("is-scrubbing");   // fill may fade back in
+    if (programmatic) { programmatic = false; return; }
+    const idx = nearestIndex();
+    if (idx !== current) { current = idx; render(); }
+    restartProgress();
+    commitActivation();                // user-scrolled card has landed
+  }
+  let settleTimer = null;
+  let lastScrollLeft = 0, lastScrollTs = 0, scrollVelocity = 0;
+  viewport.addEventListener("scroll", () => {
+    const now = performance.now();
+    const sl = viewport.scrollLeft;
+    if (lastScrollTs && now > lastScrollTs) {
+      scrollVelocity = (sl - lastScrollLeft) / (now - lastScrollTs);
+    }
+    lastScrollLeft = sl;
+    lastScrollTs = now;
+    publishProgress();                 // feed the CSS parallax every frame
+    if (!programmatic) {
+      pauseProgress();
+      section.classList.add("is-scrubbing");   // hide the time-fill while position is in flux
+      maybeEarlyActivate();            // card anim starts as the card lands, not after settle
+    }
+    clearTimeout(settleTimer);
+    settleTimer = setTimeout(onSettle, 140);
+  }, { passive: true });
+  if ("onscrollend" in window) {
+    viewport.addEventListener("scrollend", () => { clearTimeout(settleTimer); onSettle(); });
+  }
+
+  /* ---------- play / pause ---------- */
+  playBtn.addEventListener("click", () => {
+    if (ended) { replay(); return; }
+    autoplayOn = !autoplayOn;
+    render();
+    if (autoplayOn) resumeProgress(); else pauseProgress();
+  });
+
+  /* ---------- keyboard ---------- */
+  viewport.addEventListener("keydown", (e) => {
+    if (e.key === "ArrowRight") { e.preventDefault(); userGoTo(current + 1); }
+    else if (e.key === "ArrowLeft") { e.preventDefault(); userGoTo(current - 1); }
+  });
+
+  /* ---------- geometry model (single source of truth) ----------
+     peek% → desired edge → card width, clamped by maxWidth.
+     If the clamp bites, the surplus space becomes extra peek.
+     Height is proportional (0.75 × width) clamped by maxHeight. */
+  let effectiveEdge = 0;
+  let cardWpx = 0;
+  function sizeCards() {
+    const vw = viewport.clientWidth;
+    const desiredEdge = (vw * config.peekPct) / 100 + config.gap;
+    let w = vw - 2 * desiredEdge;
+    w = Math.min(w, config.maxWidth);
+    w = Math.max(160, w);
+    cardWpx = Math.round(w);
+    effectiveEdge = Math.max(0, (vw - w) / 2);
+    // height model belongs to the active card pack (portrait mobile etc.)
+    const ratio = CARD_PACKS[config.cardPack].heightRatio(w);
+    const h = Math.round(Math.min(w * ratio, config.maxHeight));
+    section.style.setProperty("--card-w", cardWpx + "px");
+    section.style.setProperty("--card-h", h + "px");
+    section.style.setProperty("--edge", Math.round(effectiveEdge) + "px");
+    section.style.setProperty("--spacer", Math.round(Math.max(0, effectiveEdge - config.gap)) + "px");
+    // parallax travel scales with the card, so small cards move less
+    section.style.setProperty("--caption-offset", Math.round(cardWpx * config.travelPct / 100) + "px");
+    publishProgress();
+  }
+
+  /* Continuous scroll position in card units (Apple's
+     --autoplay-progress): drives the text parallax in CSS. */
+  function publishProgress() {
+    const step = cardWpx + config.gap;
+    if (step > 0) {
+      section.style.setProperty("--autoplay-progress", (viewport.scrollLeft / step).toFixed(4));
+    }
+  }
+
+  /* ---------- keep sized & centred on resize ----------
+     ResizeObserver watches the CONTAINER (not the window): host-page
+     slots start at 0 width while their scripts settle, then expand —
+     the carousel re-derives its geometry whenever that happens. */
+  function recentre() {
+    sizeCards();
+    programmatic = true;               // don't treat the re-centre as a user scrub
+    clearTimeout(programmaticClear);
+    viewport.scrollLeft = targetFor(current);
+    programmaticClear = setTimeout(() => { programmatic = false; }, 60);
+  }
+  let resizeTimer = null;
+  window.addEventListener("resize", () => {
+    clearTimeout(resizeTimer);
+    resizeTimer = setTimeout(recentre, 100);
+  });
+  if ("ResizeObserver" in window) {
+    let lastW = 0;
+    new ResizeObserver(() => {
+      const w = viewport.clientWidth;
+      if (Math.abs(w - lastW) > 1) { lastW = w; recentre(); }
+    }).observe(viewport);
+  }
+
+  /* ============================================================
+     apply config → DOM (called on init + whenever a setting changes)
+     ============================================================ */
+  function applyConfig(rebuild) {
+    section.style.setProperty("--gap", config.gap + "px");
+    section.style.setProperty("--card-radius", config.cardRadius + "px");
+    section.style.setProperty("--unit-radius", config.unitRadius + "px");
+    section.style.setProperty("--fade-rate", config.fadeRate);
+    section.style.setProperty("--text-rise", config.textRise + "px");
+    section.style.setProperty("--text-scale", config.textScale / 100);
+    section.style.setProperty("--dim-amt", config.dimAmount / 100);
+    section.style.setProperty("--scale-amt", config.scaleAmount / 100);
+    section.style.setProperty("--shadow-amt", config.shadowAmount / 100);
+    section.classList.toggle("snap-start", config.snap === "start");
+    ["parallax", "fade", "fade-up", "scale"].forEach((m) =>
+      section.classList.toggle("textfx-" + m, config.textFx === m));
+    ["lift", "grow", "glow"].forEach((m) =>
+      section.classList.toggle("hover-" + m, config.hoverFx === m));
+    Object.keys(CARD_PACKS).forEach((p) =>
+      section.classList.toggle("pack-" + p, config.cardPack === p));
+    section.classList.toggle("replay-once", config.replayAnim === "once");
+    root.classList.toggle("theme-dark",
+      config.theme === "dark" || (config.theme === "auto" && hostSurfaceIsDark()));
+    section.classList.toggle("no-title", !config.showTitle);
+    section.classList.toggle("no-playpause", !config.showPlayPause);
+    setEasing(config.easing);
+    section.style.setProperty("--ease-apple", `cubic-bezier(${config.easing})`);
+    autoplayOn = config.autoplay && !REDUCED_MOTION;
+    if (rebuild) build();
+    sizeCards();
+    render();
+    // snap into place after layout settles
+    requestAnimationFrame(() => { viewport.scrollLeft = targetFor(current); restartProgress(); commitActivation(); });
+  }
+
+  /* ============================================================
+     settings panel
+     ============================================================ */
+  const cog = document.querySelector("[data-settings-open]");
+  const panel = document.querySelector("[data-settings-panel]");
+  const panelBody = document.querySelector("[data-settings-body]");
+  document.querySelector("[data-settings-close]").addEventListener("click", closePanel);
+  cog.addEventListener("click", () => panel.classList.contains("is-open") ? closePanel() : openPanel());
+  function openPanel() { panel.classList.add("is-open"); panel.setAttribute("aria-hidden", "false"); }
+  function closePanel() { panel.classList.remove("is-open"); panel.setAttribute("aria-hidden", "true"); }
+
+  const TABS = ["Page", "Motion", "Layout", "Cards", "Text", "Presets"];
+  let activeTab = "Page";
+
+  const CONTROLS = [
+    // Motion ---------------------------------------------------
+    { tab: "Motion", key: "autoplay", label: "Autoplay", type: "switch" },
+    { tab: "Motion", key: "dwell", label: "Dwell time", type: "range", min: 1500, max: 8000, step: 250, unit: "ms" },
+    { tab: "Motion", key: "transition", label: "Scroll duration", type: "range", min: 0, max: 1500, step: 50, unit: "ms" },
+    { tab: "Motion", key: "easing", label: "Easing", type: "select", options: [
+        { v: "0.4,0,0.6,1", t: "Apple ease (0.4,0,0.6,1)" },
+        { v: "0,0,0.2,1", t: "Ease-out (0,0,0.2,1)" },
+        { v: "0.28,0.11,0.32,1", t: "Apple soft (0.28,0.11,0.32,1)" },
+        { v: "0.33,1,0.68,1", t: "Ease-out cubic" },
+        { v: "0.25,0.1,0.25,1", t: "Gentle" },
+      ] },
+    { tab: "Motion", key: "endMode", label: "At the end", type: "select", options: [
+        { v: "rewind", t: "Rewind to start" },
+        { v: "none", t: "Stop (show replay)" },
+        { v: "pingpong", t: "Ping-pong" } ] },
+    { tab: "Motion", key: "cycles", label: "Cycles (0 = forever)", type: "range", min: 0, max: 5, step: 1, unit: "" },
+    { tab: "Motion", key: "pauseOnHoverActive", label: "Pause on hover (active card)", type: "switch" },
+    { tab: "Motion", key: "showPlayPause", label: "Show play/pause", type: "switch" },
+    // Layout ---------------------------------------------------
+    { tab: "Layout", key: "peekPct", label: "Peek (% of container)", type: "range", min: 0, max: 20, step: 0.5, unit: "%" },
+    { tab: "Layout", key: "gap", label: "Gap", type: "range", min: 0, max: 48, step: 2, unit: "px" },
+    { tab: "Layout", key: "maxWidth", label: "Card max width", type: "range", min: 320, max: 1600, step: 20, unit: "px" },
+    { tab: "Layout", key: "maxHeight", label: "Card max height", type: "range", min: 200, max: 800, step: 20, unit: "px" },
+    { tab: "Layout", key: "cardRadius", label: "Card corner radius", type: "range", min: 0, max: 40, step: 2, unit: "px" },
+    { tab: "Layout", key: "unitRadius", label: "Unit corner radius", type: "range", min: 0, max: 40, step: 2, unit: "px" },
+    { tab: "Layout", key: "showTitle", label: "Show title", type: "switch" },
+    { tab: "Layout", key: "slides", label: "Slides", type: "range", min: 2, max: 10, step: 1, unit: "" },
+    { tab: "Layout", key: "snap", label: "Snap align", type: "select", options: [
+        { v: "center", t: "Center" }, { v: "start", t: "Start" } ] },
+    // Cards (all scroll-driven; 0 = off) ------------------------
+    { tab: "Cards", key: "cardPack", label: "Card design", type: "select", options: [
+        { v: "numbers", t: "Numbers (placeholder)" },
+        { v: "skeleton", t: "Skeleton (title + graphic)" } ] },
+    { tab: "Cards", key: "replayAnim", label: "Card animation replays", type: "select", options: [
+        { v: "every", t: "Every visit" },
+        { v: "once", t: "Once per session" } ] },
+    { tab: "Cards", key: "dimAmount", label: "Dim off-centre cards", type: "range", min: 0, max: 90, step: 5, unit: "%" },
+    { tab: "Cards", key: "scaleAmount", label: "Shrink off-centre cards", type: "range", min: 0, max: 20, step: 1, unit: "%" },
+    { tab: "Cards", key: "shadowAmount", label: "Shadow on centred card", type: "range", min: 0, max: 40, step: 2, unit: "%" },
+    { tab: "Cards", key: "hoverFx", label: "Hover effect (active card)", type: "select", options: [
+        { v: "none", t: "None" },
+        { v: "lift", t: "Lift" },
+        { v: "grow", t: "Grow" },
+        { v: "glow", t: "Glow" } ] },
+    // Text (all scroll-driven) ----------------------------------
+    { tab: "Text", key: "textFx", label: "Text transition", type: "select", options: [
+        { v: "parallax", t: "Parallax (Apple)" },
+        { v: "fade", t: "Fade" },
+        { v: "fade-up", t: "Fade up" },
+        { v: "scale", t: "Scale" },
+        { v: "none", t: "None" } ] },
+    { key: "travelPct", tab: "Text", label: "Travel (% of card width)", type: "range", min: 0, max: 30, step: 1, unit: "%" },
+    { key: "textRise", tab: "Text", label: "Rise (fade up)", type: "range", min: 0, max: 80, step: 4, unit: "px" },
+    { key: "textScale", tab: "Text", label: "Shrink (scale)", type: "range", min: 0, max: 100, step: 5, unit: "%" },
+    { key: "fadeRate", tab: "Text", label: "Fade rate", type: "range", min: 1, max: 6, step: 0.2, unit: "×" },
+  ];
+
+  const tabStrip = document.querySelector("[data-settings-tabs]");
+  function renderTabs() {
+    tabStrip.innerHTML = "";
+    TABS.forEach((t) => {
+      const btn = document.createElement("button");
+      btn.type = "button";
+      btn.className = "settings-tab" + (t === activeTab ? " is-active" : "");
+      btn.setAttribute("role", "tab");
+      btn.setAttribute("aria-selected", t === activeTab ? "true" : "false");
+      btn.textContent = t;
+      btn.addEventListener("click", () => {
+        activeTab = t;
+        renderTabs();
+        renderControls();
+      });
+      tabStrip.appendChild(btn);
+    });
+  }
+
+  function renderControls() {
+    if (activeTab === "Presets") { renderPresetsUI(); return; }
+    if (activeTab === "Page") { renderPageUI(); return; }
+    panelBody.innerHTML = "";
+    CONTROLS.filter((c) => c.tab === activeTab).forEach((c) => {
+      panelBody.appendChild(buildControl(c));
+    });
+  }
+
+  function buildControl(c) {
+      const wrap = document.createElement("div");
+      wrap.className = "setting";
+      const val = config[c.key];
+
+      if (c.type === "switch") {
+        wrap.innerHTML = `
+          <div class="setting__row">
+            <span class="setting__label">${c.label}</span>
+            <label class="switch">
+              <input type="checkbox" ${val ? "checked" : ""} />
+              <span class="switch__track"></span>
+            </label>
+          </div>`;
+        wrap.querySelector("input").addEventListener("change", (e) => {
+          config[c.key] = e.target.checked;
+          onConfigChange(c.key);
+        });
+      } else if (c.type === "range") {
+        wrap.innerHTML = `
+          <div class="setting__row">
+            <span class="setting__label">${c.label}</span>
+            <span class="setting__val" data-val>${val}${c.unit}</span>
+          </div>
+          <input type="range" min="${c.min}" max="${c.max}" step="${c.step}" value="${val}" />`;
+        const out = wrap.querySelector("[data-val]");
+        wrap.querySelector("input").addEventListener("input", (e) => {
+          const n = Number(e.target.value);
+          config[c.key] = n;
+          out.textContent = n + c.unit;
+          onConfigChange(c.key);
+        });
+      } else if (c.type === "select") {
+        const opts = c.options.map((o) => `<option value="${o.v}" ${o.v === val ? "selected" : ""}>${o.t}</option>`).join("");
+        wrap.innerHTML = `
+          <div class="setting__row">
+            <span class="setting__label">${c.label}</span>
+            <select>${opts}</select>
+          </div>`;
+        wrap.querySelector("select").addEventListener("change", (e) => {
+          config[c.key] = e.target.value;
+          onConfigChange(c.key);
+        });
+      }
+      return wrap;
+  }
+
+  /* ---------- Page tab (host-page context switcher) ----------
+     Pages are SingleFile snapshots in ../pages, listed in pages.json.
+     Selection is URL state (?page=key), not part of the config —
+     changing it navigates, and the carousel re-inits inside the
+     partner's Thanks placement. Config persists across the switch. */
+  function renderPageUI() {
+    panelBody.innerHTML = "";
+    const wrap = document.createElement("div");
+    wrap.className = "setting";
+    wrap.innerHTML = `
+      <div class="setting__row">
+        <span class="setting__label">Host page</span>
+        <select data-page-select><option value="">None (bare)</option></select>
+      </div>
+      <p class="preset-note">Renders the prototype inside a saved partner page,
+      in their Thanks placement slot. Add pages by dropping SingleFile snapshots
+      into the pages folder and registering them in pages.json.</p>`;
+    const sel = wrap.querySelector("select");
+    // Static build (GitHub Pages) navigates between pre-assembled
+    // page-<key>.html files; the local server uses /?page=<key>.
+    const IS_STATIC = !!window.__THANKS_STATIC__;
+    const currentPage = IS_STATIC
+      ? (location.pathname.match(/page-([\w-]+)\.html$/) || [])[1] || ""
+      : new URLSearchParams(location.search).get("page") || "";
+    fetch("pages.json")
+      .then((r) => r.json())
+      .then((manifest) => {
+        Object.entries(manifest).forEach(([key, p]) => {
+          const o = document.createElement("option");
+          o.value = key;
+          o.textContent = p.title || key;
+          if (key === currentPage) o.selected = true;
+          sel.appendChild(o);
+        });
+      })
+      .catch(() => {});
+    sel.addEventListener("change", () => {
+      if (IS_STATIC) {
+        location.href = sel.value ? `page-${sel.value}.html` : "./";
+      } else {
+        location.href = sel.value ? "/?page=" + encodeURIComponent(sel.value) : "/";
+      }
+    });
+    panelBody.appendChild(wrap);
+    // theme lives here too — it's about fitting the host surface
+    panelBody.appendChild(buildControl({
+      key: "theme", label: "Theme", type: "select", options: [
+        { v: "auto", t: "Auto (detect host surface)" },
+        { v: "light", t: "Light" },
+        { v: "dark", t: "Dark" },
+      ],
+    }));
+  }
+
+  /* Walk up from the embed root to the first opaque background and
+     judge its luminance — how "auto" theme decides light vs dark. */
+  function hostSurfaceIsDark() {
+    let el = root.parentElement;
+    while (el) {
+      const bg = getComputedStyle(el).backgroundColor;
+      const m = bg && bg.match(/rgba?\(\s*([\d.]+)[,\s]+([\d.]+)[,\s]+([\d.]+)(?:[,\s/]+([\d.]+))?\s*\)/);
+      if (m && (m[4] === undefined || parseFloat(m[4]) > 0.5)) {
+        return (0.2126 * m[1] + 0.7152 * m[2] + 0.0722 * m[3]) < 110;
+      }
+      el = el.parentElement;
+    }
+    return false;
+  }
+
+  /* ---------- Presets tab ---------- */
+  function renderPresetsUI() {
+    panelBody.innerHTML = "";
+
+    // save current config under a name
+    const saveRow = document.createElement("div");
+    saveRow.className = "preset-save";
+    saveRow.innerHTML = `<input type="text" placeholder="Preset name" aria-label="Preset name" />
+      <button type="button" class="tc-btn tc-btn--primary">Save</button>`;
+    const nameInput = saveRow.querySelector("input");
+    const doSave = () => {
+      const name = nameInput.value.trim();
+      if (!name) { nameInput.focus(); return; }
+      const p = getPresets();
+      p[name] = { ...config };
+      setPresets(p);
+      nameInput.value = "";
+      renderPresetsUI();
+    };
+    saveRow.querySelector("button").addEventListener("click", doSave);
+    nameInput.addEventListener("keydown", (e) => { if (e.key === "Enter") doSave(); });
+    panelBody.appendChild(saveRow);
+
+    // saved presets list
+    const presets = getPresets();
+    const names = Object.keys(presets);
+    if (names.length === 0) {
+      const empty = document.createElement("p");
+      empty.className = "preset-note";
+      empty.textContent = "No saved presets yet — tune the settings, then save them here.";
+      panelBody.appendChild(empty);
+    }
+    names.forEach((name) => {
+      const row = document.createElement("div");
+      row.className = "preset-item";
+      row.innerHTML = `<span class="preset-item__name"></span>
+        <button type="button" class="tc-btn" data-load>Load</button>
+        <button type="button" class="tc-btn" data-del aria-label="Delete preset ${name}">&times;</button>`;
+      row.querySelector(".preset-item__name").textContent = name;
+      row.querySelector("[data-load]").addEventListener("click", () => applyPreset(presets[name]));
+      row.querySelector("[data-del]").addEventListener("click", () => {
+        const p = getPresets();
+        delete p[name];
+        setPresets(p);
+        renderPresetsUI();
+      });
+      panelBody.appendChild(row);
+    });
+
+    // share: copy current / paste + apply
+    const sub = document.createElement("p");
+    sub.className = "settings-subhead";
+    sub.textContent = "Share";
+    panelBody.appendChild(sub);
+
+    const ta = document.createElement("textarea");
+    ta.className = "preset-json";
+    ta.placeholder = "Copy current config here, or paste a shared preset…";
+    panelBody.appendChild(ta);
+
+    const shareRow = document.createElement("div");
+    shareRow.className = "preset-save";
+    shareRow.innerHTML = `<button type="button" class="tc-btn" data-copy>Copy current</button>
+      <button type="button" class="tc-btn" data-apply>Apply pasted</button>
+      <button type="button" class="tc-btn" data-reset>Reset all</button>`;
+    const copyBtn = shareRow.querySelector("[data-copy]");
+    copyBtn.addEventListener("click", () => {
+      ta.value = JSON.stringify(config, null, 2);
+      ta.select();
+      try { navigator.clipboard.writeText(ta.value); } catch {}
+      copyBtn.textContent = "Copied!";
+      setTimeout(() => { copyBtn.textContent = "Copy current"; }, 1200);
+    });
+    shareRow.querySelector("[data-apply]").addEventListener("click", () => {
+      try {
+        const parsed = JSON.parse(ta.value);
+        if (parsed && typeof parsed === "object") applyPreset(parsed);
+      } catch {
+        ta.value = "⚠︎ Couldn't parse that JSON — paste a config copied from this panel.";
+      }
+    });
+    shareRow.querySelector("[data-reset]").addEventListener("click", () => {
+      try { localStorage.removeItem(CURRENT_KEY); } catch {}
+      applyPreset(DEFAULTS);
+    });
+    panelBody.appendChild(shareRow);
+
+    const note = document.createElement("p");
+    note.className = "preset-note";
+    note.textContent = "Presets live in this browser (localStorage). Use Copy to share one with the team.";
+    panelBody.appendChild(note);
+  }
+
+  function onConfigChange(key) {
+    const needsRebuild = key === "slides" || key === "cardPack";
+    // structural / run-shape changes restart the run
+    if (["endMode", "cycles", "slides", "cardPack", "autoplay"].includes(key)) {
+      ended = false; dir = 1; cycleCount = 0;
+    }
+    applyConfig(needsRebuild);
+    if (key === "autoplay") { if (autoplayOn) resumeProgress(); else pauseProgress(); }
+    persistCurrent();     // current tuning survives reloads
+  }
+
+  /* ============================================================
+     init
+     ============================================================ */
+  restoreCurrent();     // pick up where you left off (Reset all clears)
+  build();
+  renderTabs();
+  renderControls();
+  applyConfig(false);
+
+  // test/debug hook (prototype only)
+  window.__tc = {
+    config, advance, goTo, applyConfig,
+    state: () => ({ current, ended, dir, cycleCount, activatedIndex, autoplayOn }),
+  };
+})();

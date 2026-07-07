@@ -717,8 +717,13 @@
       in their Thanks placement slot. Add pages by dropping SingleFile snapshots
       into the pages folder and registering them in pages.json.</p>`;
     const sel = wrap.querySelector("select");
-    const currentPage = new URLSearchParams(location.search).get("page") || "";
-    fetch("/pages.json")
+    // Static build (GitHub Pages) navigates between pre-assembled
+    // page-<key>.html files; the local server uses /?page=<key>.
+    const IS_STATIC = !!window.__THANKS_STATIC__;
+    const currentPage = IS_STATIC
+      ? (location.pathname.match(/page-([\w-]+)\.html$/) || [])[1] || ""
+      : new URLSearchParams(location.search).get("page") || "";
+    fetch("pages.json")
       .then((r) => r.json())
       .then((manifest) => {
         Object.entries(manifest).forEach(([key, p]) => {
@@ -731,7 +736,11 @@
       })
       .catch(() => {});
     sel.addEventListener("change", () => {
-      location.href = sel.value ? "/?page=" + encodeURIComponent(sel.value) : "/";
+      if (IS_STATIC) {
+        location.href = sel.value ? `page-${sel.value}.html` : "./";
+      } else {
+        location.href = sel.value ? "/?page=" + encodeURIComponent(sel.value) : "/";
+      }
     });
     panelBody.appendChild(wrap);
     // theme lives here too — it's about fitting the host surface
