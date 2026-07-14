@@ -21,6 +21,10 @@ for (const f of ["styles.css", "carousel.js"]) {
 for (const f of fs.readdirSync(path.join(ROOT, "fonts"))) {
   fs.copyFileSync(path.join(ROOT, "fonts", f), path.join(DOCS, "fonts", f));
 }
+fs.mkdirSync(path.join(DOCS, "assets"), { recursive: true });
+for (const f of fs.readdirSync(path.join(ROOT, "assets"))) {
+  fs.copyFileSync(path.join(ROOT, "assets", f), path.join(DOCS, "assets", f));
+}
 
 const manifest = readManifest();
 fs.writeFileSync(path.join(DOCS, "pages.json"), JSON.stringify(manifest, null, 2));

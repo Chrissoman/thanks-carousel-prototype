@@ -37,9 +37,16 @@
     showPlayPause: true,  // play/pause icon visible in pagination
     endMode: "rewind",    // rewind | none (stop + replay) | pingpong
     cycles: 0,            // stop autoplay after N full passes (0 = forever)
-    cardPack: "numbers",  // numbers | skeleton
+    cardPack: "numbers",  // numbers | skeleton | brand
     replayAnim: "every",  // every | once — card animation replay policy
     theme: "auto",        // auto (detect host surface) | light | dark
+    // brand/page tokens (also settable per host page via pages.json)
+    accent: "#0077c8",    // CTA / accent colour (publisher brand)
+    unitBgAuto: true,     // unit background follows theme (3% black / 5% white)
+    unitBgColor: "#f5f5f5", // custom unit background when auto is off
+    unitMargin: 0,        // px outer margin around the unit
+    showFooter: true,     // "A Thanks moment · Privacy Policy / Terms apply"
+    edgeFade: false,      // fade the peeking card into the unit bg (start snap)
   };
   const DEFAULTS = { ...config };   // pristine copy for reset / preset merging
 
@@ -53,10 +60,54 @@
        - card:activate / card:deactivate DOM events (bubbles)
        - the shared scroll vars --offset / --abs / --centred
      ============================================================ */
+  /* Sample offer content for the brand pack — the four examples from
+     the Figma direction ("Keep publisher brand - Use images"). */
+  const OFFERS = [
+    { brand: "adidas", title: "You’ve scored an extra 20% off adidas Outlet",
+      desc: "The season’s best styles just got even better prices. Take an extra 20% off adidas outlet picks with our exclusive code...",
+      cta: "Reveal Code", img: "assets/offer-adidas.png", logo: "assets/logo-adidas.png" },
+    { brand: "CAKES", title: "You’ve Unlocked 15% OFF CAKES",
+      desc: "Treat yourself — 15% off the entire CAKES range for new customers, delivered fresh to your door...",
+      cta: "Claim 15% off", img: "assets/offer-cakes.png", logo: "assets/logo-cakes.png" },
+    { brand: "Disney+", title: "Get 10% off your Disney+ Gift Card",
+      desc: "Stream the movies and series everyone’s talking about. Grab a discounted gift card for yourself or a friend...",
+      cta: "Get it now", img: "assets/offer-disney.png", logo: "assets/logo-disney.png" },
+    { brand: "HelloFresh", title: "You’ve earned 30 FREE HelloFresh meals",
+      desc: "Fresh ingredients and easy recipes delivered weekly. Claim 30 free meals across your first boxes...",
+      cta: "Complete survey", img: "assets/offer-hellofresh.png", logo: "assets/logo-hellofresh.png" },
+  ];
+
   const CARD_PACKS = {
     numbers: {
       heightRatio: () => 0.75,
       render: (i) => `<div class="slide__inner"><span class="slide__number fx-text">${i + 1}</span></div>`,
+    },
+    brand: {
+      // Figma spec: desktop card 508×264 (0.52), portrait 330×282 (0.855)
+      heightRatio: (w) => (w < 400 ? 0.855 : 0.52),
+      // settings this direction was designed around (applied on switch)
+      recommends: {
+        snap: "start", peekPct: 3, gap: 24, slides: 4,
+        unitRadius: 4, cardRadius: 20, maxHeight: 400,
+        showTitle: false, dimAmount: 0, scaleAmount: 0, edgeFade: true,
+      },
+      render: (i) => {
+        const o = OFFERS[i % OFFERS.length];
+        return `
+        <div class="slide__inner brand-card">
+          <div class="brand-card__media">
+            <img class="brand-card__img" src="${o.img}" alt="" draggable="false">
+            <img class="brand-card__logo" src="${o.logo}" alt="${o.brand} logo" draggable="false">
+          </div>
+          <div class="brand-card__body fx-text">
+            <div class="brand-card__text">
+              <h3 class="brand-card__title">${o.title}</h3>
+              <p class="brand-card__desc">${o.desc}</p>
+            </div>
+            <button type="button" class="brand-card__cta">${o.cta}</button>
+          </div>
+        </div>`;
+      },
     },
     skeleton: {
       // portrait on narrow cards, landscape on wide — the pack owns this
@@ -524,6 +575,21 @@
     section.style.setProperty("--gap", config.gap + "px");
     section.style.setProperty("--card-radius", config.cardRadius + "px");
     section.style.setProperty("--unit-radius", config.unitRadius + "px");
+    section.style.setProperty("--unit-margin", config.unitMargin + "px");
+    // accent + readable label colour derived from its luminance
+    section.style.setProperty("--accent", config.accent);
+    const am = config.accent.match(/^#(..)(..)(..)$/);
+    if (am) {
+      const lum = 0.2126 * parseInt(am[1], 16) + 0.7152 * parseInt(am[2], 16) + 0.0722 * parseInt(am[3], 16);
+      section.style.setProperty("--accent-ink", lum < 150 ? "#ffffff" : "#1d1d1f");
+    }
+    if (config.unitBgAuto) {
+      section.style.removeProperty("--unit-bg");
+      section.style.removeProperty("--unit-bg-solid");   // edge fade falls back
+    } else {
+      section.style.setProperty("--unit-bg", config.unitBgColor);
+      section.style.setProperty("--unit-bg-solid", config.unitBgColor);
+    }
     section.style.setProperty("--fade-rate", config.fadeRate);
     section.style.setProperty("--text-rise", config.textRise + "px");
     section.style.setProperty("--text-scale", config.textScale / 100);
@@ -542,6 +608,8 @@
       config.theme === "dark" || (config.theme === "auto" && hostSurfaceIsDark()));
     section.classList.toggle("no-title", !config.showTitle);
     section.classList.toggle("no-playpause", !config.showPlayPause);
+    section.classList.toggle("no-footer", !config.showFooter);
+    section.classList.toggle("edge-fade", config.edgeFade);
     setEasing(config.easing);
     section.style.setProperty("--ease-apple", `cubic-bezier(${config.easing})`);
     autoplayOn = config.autoplay && !REDUCED_MOTION;
@@ -563,7 +631,7 @@
   function openPanel() { panel.classList.add("is-open"); panel.setAttribute("aria-hidden", "false"); }
   function closePanel() { panel.classList.remove("is-open"); panel.setAttribute("aria-hidden", "true"); }
 
-  const TABS = ["Page", "Motion", "Layout", "Cards", "Text", "Presets"];
+  const TABS = ["Page", "Brand", "Motion", "Layout", "Cards", "Text", "Presets"];
   let activeTab = "Page";
 
   const CONTROLS = [
@@ -591,15 +659,23 @@
     { tab: "Layout", key: "maxWidth", label: "Card max width", type: "range", min: 320, max: 1600, step: 20, unit: "px" },
     { tab: "Layout", key: "maxHeight", label: "Card max height", type: "range", min: 200, max: 800, step: 20, unit: "px" },
     { tab: "Layout", key: "cardRadius", label: "Card corner radius", type: "range", min: 0, max: 40, step: 2, unit: "px" },
-    { tab: "Layout", key: "unitRadius", label: "Unit corner radius", type: "range", min: 0, max: 40, step: 2, unit: "px" },
     { tab: "Layout", key: "showTitle", label: "Show title", type: "switch" },
+    { tab: "Layout", key: "showFooter", label: "Show footer (attribution)", type: "switch" },
+    // Brand / page tokens — the CMS-configurable surface ----------
+    { tab: "Brand", key: "accent", label: "Accent colour (CTA)", type: "color" },
+    { tab: "Brand", key: "unitBgAuto", label: "Unit background: auto", type: "switch" },
+    { tab: "Brand", key: "unitBgColor", label: "Unit background colour", type: "color" },
+    { tab: "Brand", key: "unitRadius", label: "Unit corner radius", type: "range", min: 0, max: 40, step: 2, unit: "px" },
+    { tab: "Brand", key: "unitMargin", label: "Unit margin", type: "range", min: 0, max: 48, step: 4, unit: "px" },
+    { tab: "Brand", key: "edgeFade", label: "Edge fade over peek", type: "switch" },
     { tab: "Layout", key: "slides", label: "Slides", type: "range", min: 2, max: 10, step: 1, unit: "" },
     { tab: "Layout", key: "snap", label: "Snap align", type: "select", options: [
         { v: "center", t: "Center" }, { v: "start", t: "Start" } ] },
     // Cards (all scroll-driven; 0 = off) ------------------------
     { tab: "Cards", key: "cardPack", label: "Card design", type: "select", options: [
         { v: "numbers", t: "Numbers (placeholder)" },
-        { v: "skeleton", t: "Skeleton (title + graphic)" } ] },
+        { v: "skeleton", t: "Skeleton (title + graphic)" },
+        { v: "brand", t: "Brand (publisher, images)" } ] },
     { tab: "Cards", key: "replayAnim", label: "Card animation replays", type: "select", options: [
         { v: "every", t: "Every visit" },
         { v: "once", t: "Once per session" } ] },
@@ -682,6 +758,16 @@
           const n = Number(e.target.value);
           config[c.key] = n;
           out.textContent = n + c.unit;
+          onConfigChange(c.key);
+        });
+      } else if (c.type === "color") {
+        wrap.innerHTML = `
+          <div class="setting__row">
+            <span class="setting__label">${c.label}</span>
+            <input type="color" value="${val}" aria-label="${c.label}" />
+          </div>`;
+        wrap.querySelector("input").addEventListener("input", (e) => {
+          config[c.key] = e.target.value;
           onConfigChange(c.key);
         });
       } else if (c.type === "select") {
@@ -867,6 +953,11 @@
     if (["endMode", "cycles", "slides", "cardPack", "autoplay"].includes(key)) {
       ended = false; dir = 1; cycleCount = 0;
     }
+    // switching design direction applies its recommended settings
+    if (key === "cardPack") {
+      const rec = CARD_PACKS[config.cardPack].recommends;
+      if (rec) { Object.assign(config, rec); renderControls(); }
+    }
     applyConfig(needsRebuild);
     if (key === "autoplay") { if (autoplayOn) resumeProgress(); else pauseProgress(); }
     persistCurrent();     // current tuning survives reloads
@@ -876,6 +967,13 @@
      init
      ============================================================ */
   restoreCurrent();     // pick up where you left off (Reset all clears)
+  // host-page brand tokens (from pages.json) win on load; panel
+  // changes still apply live and persist for the session
+  if (window.__PAGE_TOKENS__) {
+    Object.keys(DEFAULTS).forEach((k) => {
+      if (k in window.__PAGE_TOKENS__) config[k] = window.__PAGE_TOKENS__[k];
+    });
+  }
   build();
   renderTabs();
   renderControls();

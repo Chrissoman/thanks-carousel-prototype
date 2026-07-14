@@ -3,7 +3,10 @@
     "title": "Humanitix — purchase confirmation",
     "file": "humanitix_purchase_confirmation.html",
     "inject": "thanks-iframe",
-    "note": "Replaces the Thanks embed iframe inside the partner's #thanks-widget slot"
+    "note": "Replaces the Thanks embed iframe inside the partner's #thanks-widget slot",
+    "tokens": {
+      "accent": "#b7e14e"
+    }
   },
   "oztix": {
     "title": "Oztix — order confirmation",
@@ -12,7 +15,10 @@
     "css": [
       ".section:has(#thanks-widget) { padding: 0 1px; }"
     ],
-    "note": "Replaces the Thanks embed iframe inside #thanks-widget; its host .section padding reduced to 1px"
+    "note": "Replaces the Thanks embed iframe inside #thanks-widget; its host .section padding reduced to 1px",
+    "tokens": {
+      "accent": "#0077c8"
+    }
   },
   "ebay": {
     "title": "eBay — checkout success",
@@ -23,12 +29,18 @@
       "#placement100685 { margin: 16px 0; }",
       "@media (min-width: 992px) { #placement100685 { width: calc(400% / 3); } }"
     ],
-    "note": "Partner placement div — widget hidden, carousel mounted inside; breaks out of the col-lg-9 to full container width on large screens"
+    "note": "Partner placement div — widget hidden, carousel mounted inside; breaks out of the col-lg-9 to full container width on large screens",
+    "tokens": {
+      "accent": "#3665f3"
+    }
   },
   "humanitix-light": {
     "title": "Humanitix — light theme",
     "file": "Humanitix_light.html",
     "inject": "thanks-iframe",
-    "note": "Replaces the Thanks embed iframe inside the partner's #thanks-widget slot"
+    "note": "Replaces the Thanks embed iframe inside the partner's #thanks-widget slot",
+    "tokens": {
+      "accent": "#f5a878"
+    }
   }
 }

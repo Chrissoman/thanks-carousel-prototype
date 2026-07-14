@@ -33,7 +33,11 @@ function relaxCsp(html) {
 function assemblePage(entry, embedHtml) {
   const html = relaxCsp(fs.readFileSync(path.join(PAGES_DIR, entry.file), "utf8"));
   const pageCss = entry.css ? `<style>${[].concat(entry.css).join("\n")}</style>` : "";
-  const embed = pageCss + embedHtml;
+  // per-page brand tokens (accent, unit bg…) read by carousel.js on load
+  const tokens = entry.tokens
+    ? `<script>window.__PAGE_TOKENS__=${JSON.stringify(entry.tokens)}</script>`
+    : "";
+  const embed = tokens + pageCss + embedHtml;
 
   if (entry.inject === "thanks-iframe") {
     const re = /<iframe[^>]*?data-thanks=embed[\s\S]*?<\/iframe>/;
