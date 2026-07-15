@@ -148,15 +148,16 @@
       render: (i) => {
         if (i === 0) {
           // intro card — headline with the animated reward-count ticker
+          // (rolls 0 → offer count when the card activates)
           const n = Math.max(1, config.slides - 1);
-          const digits = Array.from({ length: n }, (_, k) =>
-            `<span class="collage-ticker__digit">${k + 1}</span>`).join("");
+          const digits = Array.from({ length: n + 1 }, (_, k) =>
+            `<span class="collage-ticker__digit">${k}</span>`).join("");
           return `
-          <div class="slide__inner collage-card collage-card--intro" style="--tick-n:${n}">
+          <div class="slide__inner collage-card collage-card--intro" style="--tick-n:${n + 1}">
             <div class="collage-card__body fx-text">
               <h3 class="collage-intro__title">You’ve unlocked<br>
                 <span class="collage-ticker" role="img" aria-label="${n}"><span class="collage-ticker__reel">${digits}</span></span>&nbsp;rewards</h3>
-              <button type="button" class="collage-card__cta">Claim yours now</button>
+              <button type="button" class="collage-card__cta" data-goto-next>Claim yours now</button>
             </div>
             <div class="collage-card__media">
               <img class="collage-card__art" src="assets/collage-intro.png" alt="" draggable="false">
@@ -570,6 +571,16 @@
     viewport.addEventListener("scrollend", () => { clearTimeout(settleTimer); onSettle(); });
   }
 
+  /* ---------- in-card navigation (pack contract) ----------
+     a pack may mark a control [data-goto-next] (e.g. the intro CTA):
+     on the CURRENT card it advances; on a peeked card the standard
+     card-click navigation wins. */
+  track.addEventListener("click", (e) => {
+    if (!(e.target instanceof Element) || !e.target.closest("[data-goto-next]")) return;
+    const li = e.target.closest(".slide");
+    if (li && Number(li.dataset.index) === current) userGoTo(current + 1);
+  });
+
   /* ---------- play / pause ---------- */
   playBtn.addEventListener("click", () => {
     if (ended) { replay(); return; }
@@ -620,12 +631,13 @@
     // edge fades span the ACTUAL card row height (cards may be
     // content-driven and taller than --card-h, e.g. brand mobile)
     section.style.setProperty("--fade-h", Math.max(0, viewport.clientHeight - 72) + "px");
-    // unit chrome spacing is responsive in the design (Figma):
-    // desktop 32 top / 24 card→dots, mobile 24 / 17 — switch with
-    // the same card-width threshold as the pack tiers
+    // unit chrome spacing is responsive in the design (Figma "Card
+    // in unit", Direction 2): desktop 32 top / 20 card→controls,
+    // mobile 24 / 15 — switch with the same card-width threshold
+    // as the pack tiers
     const mobileUnit = cardWpx < 440;
     section.style.setProperty("--unit-pad-top", mobileUnit ? "24px" : "32px");
-    section.style.setProperty("--unit-gap", mobileUnit ? "17px" : "24px");
+    section.style.setProperty("--unit-gap", mobileUnit ? "15px" : "20px");
     publishProgress();
   }
 

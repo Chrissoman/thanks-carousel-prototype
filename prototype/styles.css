@@ -142,28 +142,30 @@
   line-height: 1.3;
 }
 
-/* Play / pause — bare icon, lives in the pagination row ---------*/
+/* Play / pause — white circular chip beside the progress pill
+   (Figma "Card in unit": 22×22, r100, #cacaca glyphs) ---------*/
 .carousel__playpause {
   flex: none;
   position: relative;
-  width: 28px; height: 28px;
+  width: 22px; height: 22px;
   border: none;
-  background: none;
-  box-shadow: none;
+  background: #fff;
+  box-shadow:
+    0 0 2px rgba(0, 0, 0, 0.03),
+    0 1px 4px rgba(0, 0, 0, 0.03);
   border-radius: 50%;
-  color: var(--ink);
+  color: #cacaca;
   cursor: pointer;
-  opacity: 0.55;                 /* muted, like the idle dots */
-  transition: opacity .15s ease, transform .1s ease;
+  transition: color .15s ease, transform .1s ease;
 }
-/* extend the 28px control to a 40px hit area */
+/* extend the 22px control to a 40px hit area */
 .carousel__playpause::before {
   content: "";
   position: absolute;
-  inset: -6px;
+  inset: -9px;
   border-radius: 50%;
 }
-.carousel__playpause:hover { opacity: 1; }
+.carousel__playpause:hover { color: #9c9ca1; }
 .carousel__playpause:active { transform: scale(0.96); }
 /* icons cross-fade (opacity/scale/blur) instead of display toggling —
    both stay in the DOM, absolutely centred */
@@ -171,7 +173,7 @@
   position: absolute;
   inset: 0;
   margin: auto;
-  width: 18px; height: 18px;
+  width: 12px; height: 12px;
   fill: currentColor;
   opacity: 0;
   scale: 0.25;
@@ -414,15 +416,22 @@
   display: flex;
   justify-content: center;
   align-items: center;
-  gap: 12px;                     /* clears the dot + button hit areas */
-  margin-top: var(--unit-gap, 24px);   /* card → dots (Figma) */
+  gap: 8px;                      /* pill → play chip (Figma) */
+  margin-top: var(--unit-gap, 20px);   /* card → controls (Figma) */
   padding: 0 16px;
 }
+/* dots live in a white pill (Figma "Card in unit": r100, pad 8/12) */
 .carousel__progress {
   display: flex;
   align-items: center;
   gap: 7px;                      /* Figma spec; hit targets preserved
                                     via taller ::before extensions */
+  background: #fff;
+  border-radius: 100px;
+  padding: 8px 12px;
+  box-shadow:
+    0 0 2px rgba(0, 0, 0, 0.03),
+    0 1px 4px rgba(0, 0, 0, 0.03);
 }
 /* toggles (config panel) */
 .carousel.no-title .carousel__head { display: none; }
@@ -436,18 +445,19 @@
   align-items: center;
   justify-content: space-between;
   gap: 12px;
-  margin-top: 13px;               /* dots → footer (Figma) */
+  margin-top: 5px;                /* controls → footer (Figma) */
   padding: 0 10px;                /* footer inset from unit edge (Figma) */
   font-size: 10px;
   line-height: 1.1;
-  color: #737373;                 /* soft: "Terms apply", "A", "·" */
+  color: #737373;                 /* "Thanks", "Terms · Privacy" */
 }
-/* mixed attribution colours (Figma): strong words near-black */
-.thanks-proto .carousel .carousel__attribution { color: #171717; }
-.thanks-proto .carousel .carousel__attribution .soft { color: #737373; }
+/* mixed attribution colours (Figma "Card in unit"): brand word
+   #737373, framing words 24% black */
+.thanks-proto .carousel .carousel__attribution { color: #737373; }
+.thanks-proto .carousel .carousel__attribution .soft { color: rgba(0, 0, 0, 0.24); }
 .thanks-proto.theme-dark .carousel__footer { color: var(--ink-soft); }
-.thanks-proto.theme-dark .carousel__attribution { color: var(--ink); }
-.thanks-proto.theme-dark .carousel__attribution .soft { color: var(--ink-soft); }
+.thanks-proto.theme-dark .carousel__attribution { color: var(--ink-soft); }
+.thanks-proto.theme-dark .carousel__attribution .soft { color: rgba(255, 255, 255, 0.35); }
 
 /* ---------- edge fades over the peeking cards ----------
    BOTH edges, always matching the unit's EFFECTIVE background:
@@ -1006,9 +1016,11 @@
   user-select: none;
   pointer-events: none;
 }
-/* scroll-attached drift, like the brand pack's image parallax */
-.carousel.img-parallax .collage-card__art {
-  transform: translateX(calc(-50% + var(--offset, 0) * 6%));
+/* scroll-attached movement: the art travels EXACTLY like the text
+   (same parallax function of --offset), so copy and collage move as
+   one — pure scrub, no timed animation */
+.carousel.textfx-parallax .collage-card__art {
+  transform: translateX(calc(-50% + (var(--offset, 0) + var(--offset, 0) * 1.6) * var(--caption-offset, 120px)));
 }
 
 /* — stacked layout on narrow cards (<440px): no mobile comp yet,
@@ -1028,7 +1040,9 @@
     border-radius: var(--card-radius) var(--card-radius) 0 0;
   }
   .collage-card__art { height: 118%; top: -9%; }
-  .collage-card__body { flex: 1 1 auto; padding: 20px; gap: 16px; justify-content: flex-start; }
+  /* text block sits at the BOTTOM of the card; the image band above
+     absorbs any spare height */
+  .collage-card__body { flex: 1 1 auto; padding: 20px; gap: 16px; justify-content: flex-end; }
   .collage-card--intro .collage-card__body { padding-right: 20px; }
   .thanks-proto .carousel .collage-card__title { font-size: 18px; line-height: 20px; }
   .thanks-proto .carousel .collage-card__desc { font-size: 12px; line-height: 16px; }
