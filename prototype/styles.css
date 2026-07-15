@@ -143,37 +143,38 @@
 }
 
 /* Play / pause — white circular chip beside the progress pill
-   (Figma "Card in unit": 22×22, r100, #cacaca glyphs) ---------*/
+   (Figma "controls" 229:6447: 24×24, r100, #acacac glyphs) ---------*/
 .carousel__playpause {
   flex: none;
   position: relative;
-  width: 22px; height: 22px;
+  width: 24px; height: 24px;
   border: none;
   background: #fff;
   box-shadow:
     0 0 2px rgba(0, 0, 0, 0.03),
-    0 1px 4px rgba(0, 0, 0, 0.03);
+    0 1px 4px rgba(0, 0, 0, 0.05);
   border-radius: 50%;
-  color: #cacaca;
+  color: #acacac;
   cursor: pointer;
   transition: color .15s ease, transform .1s ease;
 }
-/* extend the 22px control to a 40px hit area */
+/* extend the 24px control to a 40px hit area */
 .carousel__playpause::before {
   content: "";
   position: absolute;
-  inset: -9px;
+  inset: -8px;
   border-radius: 50%;
 }
-.carousel__playpause:hover { color: #9c9ca1; }
+.carousel__playpause:hover { color: #8e8e93; }
 .carousel__playpause:active { transform: scale(0.96); }
 /* icons cross-fade (opacity/scale/blur) instead of display toggling —
-   both stay in the DOM, absolutely centred */
+   both stay in the DOM, absolutely centred; the glyphs are drawn on
+   the same 24×24 grid as the chip, so they render full-size */
 .carousel__playpause svg {
   position: absolute;
   inset: 0;
   margin: auto;
-  width: 12px; height: 12px;
+  width: 24px; height: 24px;
   fill: currentColor;
   opacity: 0;
   scale: 0.25;
@@ -420,7 +421,8 @@
   margin-top: var(--unit-gap, 20px);   /* card → controls (Figma) */
   padding: 0 16px;
 }
-/* dots live in a white pill (Figma "Card in unit": r100, pad 8/12) */
+/* dots live in a white pill (Figma "controls" 229:6447: r100,
+   24 tall → pad 9/12) */
 .carousel__progress {
   display: flex;
   align-items: center;
@@ -428,10 +430,10 @@
                                     via taller ::before extensions */
   background: #fff;
   border-radius: 100px;
-  padding: 8px 12px;
+  padding: 9px 12px;
   box-shadow:
     0 0 2px rgba(0, 0, 0, 0.03),
-    0 1px 4px rgba(0, 0, 0, 0.03);
+    0 1px 4px rgba(0, 0, 0, 0.05);
 }
 /* toggles (config panel) */
 .carousel.no-title .carousel__head { display: none; }
