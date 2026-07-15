@@ -114,13 +114,14 @@
   background: var(--unit-bg, rgba(0, 0, 0, 0.03));
   border-radius: var(--unit-radius, 0px);
   margin: var(--unit-margin, 0px); /* block element: width adapts */
-  padding-top: 22px;
-  /* bottom padding mirrors the dots' top gap → pagination is
-     equally spaced above and below (footer supplies it when shown) */
-  padding-bottom: 26px;
+  /* unit rhythm from Figma (set responsively in JS):
+     desktop 32 / 24 / 13 / 8 · mobile 24 / 17 / 13 / 8 */
+  padding-top: var(--unit-pad-top, 32px);
+  /* no footer: bottom padding mirrors the card→dots gap */
+  padding-bottom: var(--unit-gap, 24px);
 }
 .thanks-proto.theme-dark .carousel { background: var(--unit-bg, rgba(255, 255, 255, 0.05)); }
-.carousel:not(.no-footer) { padding-bottom: 10px; }
+.carousel:not(.no-footer) { padding-bottom: 8px; }
 .carousel__head {
   display: flex;
   align-items: center;
@@ -414,7 +415,7 @@
   justify-content: center;
   align-items: center;
   gap: 12px;                     /* clears the dot + button hit areas */
-  margin-top: 26px;
+  margin-top: var(--unit-gap, 24px);   /* card → dots (Figma) */
   padding: 0 16px;
 }
 .carousel__progress {
@@ -435,8 +436,8 @@
   align-items: center;
   justify-content: space-between;
   gap: 12px;
-  margin-top: 14px;
-  padding: 0 12px;
+  margin-top: 13px;               /* dots → footer (Figma) */
+  padding: 0 10px;                /* footer inset from unit edge (Figma) */
   font-size: 10px;
   line-height: 1.1;
   color: #737373;                 /* soft: "Terms apply", "A", "·" */
@@ -456,7 +457,7 @@
    are content-driven. Assumes the title is hidden (brand direction). */
 .carousel__edgefade {
   position: absolute;
-  top: 22px;                       /* unit padding-top */
+  top: var(--unit-pad-top, 32px);  /* unit padding-top */
   left: 0;
   right: 0;
   height: var(--fade-h, var(--card-h, 320px));

@@ -555,6 +555,12 @@
     // edge fades span the ACTUAL card row height (cards may be
     // content-driven and taller than --card-h, e.g. brand mobile)
     section.style.setProperty("--fade-h", Math.max(0, viewport.clientHeight - 72) + "px");
+    // unit chrome spacing is responsive in the design (Figma):
+    // desktop 32 top / 24 card→dots, mobile 24 / 17 — switch with
+    // the same card-width threshold as the pack tiers
+    const mobileUnit = cardWpx < 440;
+    section.style.setProperty("--unit-pad-top", mobileUnit ? "24px" : "32px");
+    section.style.setProperty("--unit-gap", mobileUnit ? "17px" : "24px");
     publishProgress();
   }
 
