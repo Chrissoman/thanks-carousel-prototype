@@ -83,8 +83,10 @@
       render: (i) => `<div class="slide__inner"><span class="slide__number fx-text">${i + 1}</span></div>`,
     },
     brand: {
-      // Figma spec: desktop card 508×264 (0.52), portrait 330×282 (0.855)
-      heightRatio: (w) => (w < 400 ? 0.855 : 0.52),
+      // Figma "Offer - Image style" variants: Mobile 357×282 (0.79),
+      // Desktop small 508×266 (0.5236), Desktop large 701×306 (0.4365).
+      // Thresholds match the @container queries in styles.css.
+      heightRatio: (w) => (w < 440 ? 0.79 : w < 640 ? 0.5236 : 0.4365),
       // settings this direction was designed around (applied on switch)
       recommends: {
         snap: "start", peekPct: 3, gap: 24, slides: 4,

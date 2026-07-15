@@ -695,27 +695,29 @@
   flex-direction: column;
   gap: 8px;
 }
+/* — Size=Desktop small (base): 508×266, title 22/26, CTA h40 — */
 .thanks-proto .brand-card__title {
   font-family: inherit;
-  font-size: 20px;
-  line-height: 24px;
+  font-size: 22px;
+  line-height: 26px;
   font-weight: 700;
   letter-spacing: 0;
   color: #1d1d1d;
   text-wrap: balance;
 }
 .thanks-proto .brand-card__desc {
-  font-size: 12px;
-  line-height: 17px;
+  font-size: 13px;
+  line-height: 18px;
   color: #525252;
   text-wrap: pretty;
 }
 .brand-card__cta {
   align-self: flex-start;
+  flex: none;        /* never squashed — the clamped desc gives way */
   font: inherit;
   font-size: 13px;
   font-weight: 500;
-  height: 32px;
+  height: 40px;
   padding: 0 24px;
   border: none;
   border-radius: 96px;
@@ -726,27 +728,44 @@
 }
 .brand-card__cta:hover { filter: brightness(1.08); }
 .brand-card__cta:active { scale: 0.96; }
-/* portrait stack on narrow cards (Figma mobile: 330×282) */
-@container (max-width: 400px) {
+
+/* — Size=Mobile: <440px card — 357×282, title 19/22, CTA h32 — */
+@container (max-width: 439px) {
   .brand-card { flex-direction: column; }
   .brand-card__media {
     flex: 0 0 40%;
     border-radius: var(--card-radius) var(--card-radius) 0 0;
   }
   .brand-card__body {
-    padding: 18px 20px 20px;
+    padding: 20px;
     gap: 16px;
     justify-content: flex-start;
     min-height: 0;
   }
-  /* if height runs tight, the description gives way — never the CTA */
-  .brand-card__text { flex: 0 1 auto; min-height: 0; overflow: hidden; }
-  .brand-card__desc {
-    display: -webkit-box;
-    -webkit-line-clamp: 2;
-    -webkit-box-orient: vertical;
+  .thanks-proto .brand-card__title { font-size: 19px; line-height: 22px; }
+  .thanks-proto .brand-card__desc { font-size: 12px; line-height: 16px; }
+  .brand-card__cta { height: 32px; padding: 0 16px; }
+  /* if height runs tight, the description gives way — never the CTA.
+     Overflow fades out (the design's own "fadeout" treatment) instead
+     of hard-clipping mid-line. */
+  .brand-card__text {
+    flex: 0 1 auto;
+    min-height: 0;
     overflow: hidden;
+    mask-image: linear-gradient(to bottom, #000 calc(100% - 14px), transparent);
+    -webkit-mask-image: linear-gradient(to bottom, #000 calc(100% - 14px), transparent);
   }
+}
+
+/* — Size=Desktop large: ≥640px card — 701×306, title 28/31, CTA h48 — */
+@container (min-width: 640px) {
+  .brand-card__media { flex: 0 0 44.5%; }
+  .brand-card__logo { width: 56px; height: 56px; }
+  .brand-card__body { padding: 40px; }
+  .brand-card__text { gap: 10px; }
+  .thanks-proto .brand-card__title { font-size: 28px; line-height: 31px; }
+  .thanks-proto .brand-card__desc { font-size: 15px; line-height: 21px; }
+  .brand-card__cta { height: 48px; padding: 0 28px; font-size: 15px; }
 }
 
 /* ============================================================
