@@ -949,6 +949,12 @@
 }
 .thanks-proto .carousel .collage-card__cta:hover { filter: brightness(1.08); }
 .thanks-proto .carousel .collage-card__cta:active { scale: 0.96; }
+/* the intro CTA is publisher-accent coloured — its label uses the
+   luminance-derived ink (dark on light accents like Humanitix's
+   orange/lime); offer CTAs keep white on their dark advertiser colours */
+.thanks-proto .carousel .collage-card--intro .collage-card__cta {
+  color: var(--accent-ink, #fff);
+}
 
 /* — intro headline: 28/30 with the reward-count ticker chip — */
 .thanks-proto .carousel .collage-intro__title {
