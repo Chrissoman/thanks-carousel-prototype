@@ -131,7 +131,7 @@
 }
 /* .thanks-proto prefix: outguns host patterns like
    ".receipt-container h2" (Oztix) without resorting to !important */
-.thanks-proto .carousel__title {
+.thanks-proto .carousel .carousel__title {
   font-size: 21px;
   font-weight: 700;
   letter-spacing: -0.01em;
@@ -348,8 +348,8 @@
   justify-content: center;
   gap: 12px;
 }
-.thanks-proto .card-skel__title { font-size: 24px; font-weight: 700; letter-spacing: -0.02em; text-wrap: balance; color: var(--ink); font-family: inherit; line-height: 1.25; }
-.thanks-proto .card-skel__desc { color: var(--ink-soft); font-size: 14.5px; line-height: 1.45; text-wrap: pretty; }
+.thanks-proto .carousel .card-skel__title { font-size: 24px; font-weight: 700; letter-spacing: -0.02em; text-wrap: balance; color: var(--ink); font-family: inherit; line-height: 1.25; }
+.thanks-proto .carousel .card-skel__desc { color: var(--ink-soft); font-size: 14.5px; line-height: 1.45; text-wrap: pretty; }
 .card-skel__btn {
   align-self: flex-start;
   font: inherit;
@@ -442,8 +442,8 @@
   color: #737373;                 /* soft: "Terms apply", "A", "·" */
 }
 /* mixed attribution colours (Figma): strong words near-black */
-.thanks-proto .carousel__attribution { color: #171717; }
-.thanks-proto .carousel__attribution .soft { color: #737373; }
+.thanks-proto .carousel .carousel__attribution { color: #171717; }
+.thanks-proto .carousel .carousel__attribution .soft { color: #737373; }
 .thanks-proto.theme-dark .carousel__footer { color: var(--ink-soft); }
 .thanks-proto.theme-dark .carousel__attribution { color: var(--ink); }
 .thanks-proto.theme-dark .carousel__attribution .soft { color: var(--ink-soft); }
@@ -659,6 +659,34 @@
    ============================================================ */
 .pack-brand .slide { container-type: inline-size; display: flex; }
 .pack-brand .slide__inner { flex: 1; min-width: 0; }
+.pack-brand .slide { cursor: pointer; }   /* whole card is tappable */
+
+/* ============================================================
+   Content defense — hosts style bare elements (Oztix's
+   ".receipt-container h3/p" adds margins and re-weights type).
+   Specificity (0,2,1) beats host ".container element" patterns,
+   and our stylesheet loads after theirs so ties also go to us.
+   Padding is NOT reset on buttons (CTAs own theirs).
+   ============================================================ */
+.thanks-proto .carousel :is(h1, h2, h3, h4, h5, h6, p, ul, li) {
+  margin: 0;
+  padding: 0;
+  font-family: inherit;
+  letter-spacing: normal;
+  text-transform: none;
+  text-shadow: none;
+  border: none;
+}
+.thanks-proto .carousel :is(button, a, span) {
+  font-family: inherit;
+  letter-spacing: normal;
+  text-transform: none;
+  text-shadow: none;
+  background-image: none;
+}
+.thanks-proto .carousel .brand-card__desc,
+.thanks-proto .carousel .card-skel__desc,
+.thanks-proto .carousel__footer { font-weight: 400; }
 .pack-brand .slide__inner {
   /* Figma card shadows replace the default ring */
   box-shadow:
@@ -693,21 +721,26 @@
   position: absolute;
   top: 16px;
   left: 16px;
-  width: 48px;
-  height: 48px;
+  width: 52px;
+  height: 52px;
   border-radius: 50%;
-  /* the exported badge PNG carries its own circle fill — only the
-     1.5px white ring is CSS (no background, which doubled the disc) */
+  /* the exported badge PNG carries its own treatment — only the
+     1.5px white ring + backdrop blur are CSS */
   box-shadow: 0 0 0 1.5px #fff;
+  backdrop-filter: blur(6px);
+  -webkit-backdrop-filter: blur(6px);
 }
 /* mobile image variant hidden except in the mobile tier */
 .brand-card__img--mobile { display: none; }
 
-/* scroll-attached image motion: scaled up off-position, sliding
-   right → left into place as the card reaches its snap point */
+/* scroll-attached image motion: pure SIDEWAYS drift — the image is
+   permanently overscanned (130% wide) so it can slide right → left
+   into place without exposing its container edges */
 .carousel.img-parallax .brand-card__img {
-  transform: translateX(calc(var(--offset, 0) * 12%))
-             scale(calc(1 + var(--abs, 0) * 0.25));
+  width: 130%;
+  max-width: none;
+  margin-left: -15%;
+  transform: translateX(calc(var(--offset, 0) * 10%));
 }
 .brand-card__body {
   flex: 1;
@@ -735,7 +768,7 @@
   -webkit-mask-image: linear-gradient(to bottom, #000 calc(100% - 14px), transparent);
 }
 /* — Size=Desktop small (base): 508×266, title 22/26, CTA h40 — */
-.thanks-proto .brand-card__title {
+.thanks-proto .carousel .brand-card__title {
   font-family: inherit;
   font-size: 22px;
   line-height: 26px;
@@ -744,13 +777,13 @@
   color: #1d1d1d;
   text-wrap: balance;
 }
-.thanks-proto .brand-card__desc {
+.thanks-proto .carousel .brand-card__desc {
   font-size: 13px;
   line-height: 18px;
   color: #525252;
   text-wrap: pretty;
 }
-.brand-card__cta {
+.thanks-proto .carousel .brand-card__cta {
   align-self: flex-start;
   flex: none;        /* never squashed — the clamped desc gives way */
   font: inherit;
@@ -765,8 +798,8 @@
   cursor: pointer;
   transition: filter .15s ease, scale .15s ease;
 }
-.brand-card__cta:hover { filter: brightness(1.08); }
-.brand-card__cta:active { scale: 0.96; }
+.thanks-proto .carousel .brand-card__cta:hover { filter: brightness(1.08); }
+.thanks-proto .carousel .brand-card__cta:active { scale: 0.96; }
 
 /* — Size=Mobile: <440px card — 357-wide comp, title 19/22, CTA h32.
      Height is CONTENT-DRIVEN (no fixed aspect): the card grows to fit
@@ -790,20 +823,22 @@
     justify-content: flex-start;
     min-height: 0;
   }
-  .thanks-proto .brand-card__title { font-size: 19px; line-height: 22px; }
-  .thanks-proto .brand-card__desc { font-size: 12px; line-height: 16px; }
-  .brand-card__cta { height: 32px; padding: 0 16px; }
+  .thanks-proto .carousel .brand-card__title { font-size: 19px; line-height: 22px; }
+  .thanks-proto .carousel .brand-card__desc { font-size: 12px; line-height: 16px; }
+  /* CTA pinned to the card bottom (Figma mobile comp); text stays
+     top-aligned under the image */
+  .thanks-proto .carousel .brand-card__cta { height: 32px; padding: 0 16px; margin-top: auto; }
 }
 
 /* — Size=Desktop large: ≥640px card — 701×306, title 28/31, CTA h48 — */
 @container (min-width: 640px) {
   .brand-card__media { flex: 0 0 44.5%; }
-  .brand-card__logo { width: 56px; height: 56px; }
+  .brand-card__logo { width: 60px; height: 60px; }
   .brand-card__body { padding: 40px; }
   .brand-card__text { gap: 10px; }
-  .thanks-proto .brand-card__title { font-size: 28px; line-height: 31px; }
-  .thanks-proto .brand-card__desc { font-size: 15px; line-height: 21px; }
-  .brand-card__cta { height: 48px; padding: 0 28px; font-size: 15px; }
+  .thanks-proto .carousel .brand-card__title { font-size: 28px; line-height: 31px; }
+  .thanks-proto .carousel .brand-card__desc { font-size: 15px; line-height: 21px; }
+  .thanks-proto .carousel .brand-card__cta { height: 48px; padding: 0 28px; font-size: 15px; }
 }
 
 /* ============================================================

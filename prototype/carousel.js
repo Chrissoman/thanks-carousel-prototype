@@ -242,6 +242,11 @@
       li.addEventListener("pointerleave", () => {
         if (i === current) { hoverPause = false; resumeProgress(); }
       });
+      // whole card is tappable: peeked cards navigate; the current
+      // card is the offer action (dead in this prototype)
+      li.addEventListener("click", () => {
+        if (i !== current) userGoTo(i);
+      });
       track.appendChild(li);
       slides.push(li);
 
