@@ -229,6 +229,29 @@
     applyConfig(true);
   }
 
+  /* ---------- shareable design links ----------
+     #cfg=<base64url JSON diff vs DEFAULTS> pins the design for this
+     load. localStorage is IGNORED when a link carries a cfg, so the
+     link renders identically for every recipient. Composes with the
+     host-page selection: /?page=key#cfg=… (local server) or
+     page-key.html#cfg=… (GitHub Pages). */
+  function readSharedConfig() {
+    const m = location.hash.match(/[#&]cfg=([^&]+)/) || location.search.match(/[?&]cfg=([^&]+)/);
+    if (!m) return null;
+    try {
+      const parsed = JSON.parse(atob(m[1].replace(/-/g, "+").replace(/_/g, "/")));
+      return parsed && typeof parsed === "object" ? parsed : null;
+    } catch { return null; }
+  }
+  function shareLink() {
+    const diff = {};
+    Object.keys(DEFAULTS).forEach((k) => {
+      if (JSON.stringify(config[k]) !== JSON.stringify(DEFAULTS[k])) diff[k] = config[k];
+    });
+    const b64 = btoa(JSON.stringify(diff)).replace(/\+/g, "-").replace(/\//g, "_").replace(/=+$/, "");
+    return location.origin + location.pathname + location.search + "#cfg=" + b64;
+  }
+
   const root     = document.querySelector(".thanks-proto");
   const section  = document.querySelector(".carousel");
   const viewport = section.querySelector("[data-viewport]");
@@ -943,10 +966,11 @@
       })
       .catch(() => {});
     sel.addEventListener("change", () => {
+      // carry a shared design (#cfg=…) across page switches
       if (IS_STATIC) {
-        location.href = sel.value ? `page-${sel.value}.html` : "./";
+        location.href = (sel.value ? `page-${sel.value}.html` : "./") + location.hash;
       } else {
-        location.href = sel.value ? "/?page=" + encodeURIComponent(sel.value) : "/";
+        location.href = (sel.value ? "/?page=" + encodeURIComponent(sel.value) : "/") + location.hash;
       }
     });
     panelBody.appendChild(wrap);
@@ -1040,9 +1064,19 @@
 
     const shareRow = document.createElement("div");
     shareRow.className = "preset-save";
-    shareRow.innerHTML = `<button type="button" class="tc-btn" data-copy>Copy current</button>
+    shareRow.innerHTML = `<button type="button" class="tc-btn tc-btn--primary" data-share>Copy share link</button>
+      <button type="button" class="tc-btn" data-copy>Copy current</button>
       <button type="button" class="tc-btn" data-apply>Apply pasted</button>
       <button type="button" class="tc-btn" data-reset>Reset all</button>`;
+    // share: URL pinning this page + design for anyone who opens it
+    const shareBtn = shareRow.querySelector("[data-share]");
+    shareBtn.addEventListener("click", () => {
+      const url = shareLink();
+      ta.value = url;
+      try { navigator.clipboard.writeText(url); } catch {}
+      shareBtn.textContent = "Link copied!";
+      setTimeout(() => { shareBtn.textContent = "Copy share link"; }, 1200);
+    });
     const copyBtn = shareRow.querySelector("[data-copy]");
     copyBtn.addEventListener("click", () => {
       ta.value = JSON.stringify(config, null, 2);
@@ -1090,12 +1124,22 @@
   /* ============================================================
      init
      ============================================================ */
-  restoreCurrent();     // pick up where you left off (Reset all clears)
-  // host-page brand tokens (from pages.json) win on load; panel
-  // changes still apply live and persist for the session
+  // precedence: DEFAULTS → saved tuning (skipped for shared links)
+  // → host-page tokens → the shared design diff
+  const sharedCfg = readSharedConfig();
+  if (!sharedCfg) restoreCurrent();   // pick up where you left off
+  // host-page brand tokens (from pages.json); panel changes still
+  // apply live and persist for the session
   if (window.__PAGE_TOKENS__) {
     Object.keys(DEFAULTS).forEach((k) => {
       if (k in window.__PAGE_TOKENS__) config[k] = window.__PAGE_TOKENS__[k];
+    });
+  }
+  // a shared design wins over everything (but is not persisted —
+  // the recipient's own tuning survives their next normal visit)
+  if (sharedCfg) {
+    Object.keys(DEFAULTS).forEach((k) => {
+      if (k in sharedCfg) config[k] = sharedCfg[k];
     });
   }
   build();
