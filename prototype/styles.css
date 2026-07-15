@@ -724,9 +724,8 @@
   width: 52px;
   height: 52px;
   border-radius: 50%;
-  /* the exported badge PNG carries its own treatment — only the
-     1.5px white ring + backdrop blur are CSS */
-  box-shadow: 0 0 0 1.5px #fff;
+  /* the exported badge PNG carries its own treatment — CSS only
+     adds the backdrop blur */
   backdrop-filter: blur(6px);
   -webkit-backdrop-filter: blur(6px);
 }
