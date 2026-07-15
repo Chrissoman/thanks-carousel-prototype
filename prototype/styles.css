@@ -439,11 +439,14 @@
   padding: 0 12px;
   font-size: 10px;
   line-height: 1.1;
-  color: #525252;
+  color: #737373;                 /* soft: "Terms apply", "A", "·" */
 }
+/* mixed attribution colours (Figma): strong words near-black */
+.thanks-proto .carousel__attribution { color: #171717; }
+.thanks-proto .carousel__attribution .soft { color: #737373; }
 .thanks-proto.theme-dark .carousel__footer { color: var(--ink-soft); }
-.carousel__footer .soft,
-.carousel__terms { color: #737373; }
+.thanks-proto.theme-dark .carousel__attribution { color: var(--ink); }
+.thanks-proto.theme-dark .carousel__attribution .soft { color: var(--ink-soft); }
 
 /* ---------- edge fade over the peeking card ----------
    Positioned over the card row (assumes the title is hidden, as in
@@ -657,6 +660,9 @@
   min-height: 0;   /* replaced-element min-size gotcha: without this the
                       img's intrinsic height inflates the flex item */
   overflow: hidden;
+  /* round the media's own outer corners: relying on the card's clip
+     leaves an antialiased sliver of card background at the curve */
+  border-radius: var(--card-radius) 0 0 var(--card-radius);
 }
 .brand-card__img {
   width: 100%;
@@ -723,7 +729,10 @@
 /* portrait stack on narrow cards (Figma mobile: 330×282) */
 @container (max-width: 400px) {
   .brand-card { flex-direction: column; }
-  .brand-card__media { flex: 0 0 40%; }
+  .brand-card__media {
+    flex: 0 0 40%;
+    border-radius: var(--card-radius) var(--card-radius) 0 0;
+  }
   .brand-card__body {
     padding: 18px 20px 20px;
     gap: 16px;

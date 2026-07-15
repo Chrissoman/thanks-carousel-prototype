@@ -6,7 +6,10 @@
     "note": "Replaces the Thanks embed iframe inside the partner's #thanks-widget slot",
     "tokens": {
       "accent": "#b7e14e"
-    }
+    },
+    "css": [
+      "#thanks-widget-wrapper { background: transparent !important; box-shadow: none !important; }"
+    ]
   },
   "oztix": {
     "title": "Oztix — order confirmation",
@@ -41,6 +44,9 @@
     "note": "Replaces the Thanks embed iframe inside the partner's #thanks-widget slot",
     "tokens": {
       "accent": "#f5a878"
-    }
+    },
+    "css": [
+      "#thanks-widget-wrapper { background: transparent !important; box-shadow: none !important; }"
+    ]
   }
 }

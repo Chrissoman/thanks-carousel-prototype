@@ -532,6 +532,16 @@
     section.style.setProperty("--spacer", Math.round(Math.max(0, effectiveEdge - config.gap)) + "px");
     // parallax travel scales with the card, so small cards move less
     section.style.setProperty("--caption-offset", Math.round(cardWpx * config.travelPct / 100) + "px");
+    // Each slide's --progress is its CLAMPED snap target in card units,
+    // not its raw index: near the ends of the track (esp. snap-start)
+    // a card can never reach index×step, and an index-based offset
+    // would leave its text/dots permanently faded. Target-based
+    // progress zeroes out exactly when the card sits at its snap point.
+    const step = cardWpx + config.gap;
+    if (step > 0 && slides.length) {
+      slides.forEach((s, i) => s.style.setProperty("--progress", (targetFor(i) / step).toFixed(4)));
+      segments.forEach((seg, i) => seg.style.setProperty("--item-index", (targetFor(i) / step).toFixed(4)));
+    }
     publishProgress();
   }
 
