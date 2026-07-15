@@ -79,6 +79,24 @@
       cta: "Complete survey", img: "assets/offer-hellofresh.png", imgMobile: "assets/offer-hellofresh-mobile.jpg", logo: "assets/logo-hellofresh.png" },
   ];
 
+  /* Offer content for the collage pack — Figma "Direction 2":
+     advertiser-coloured CTAs, collage art exported per card (with a
+     40px transparent margin so shadows / overflowing chips survive). */
+  const COLLAGE_OFFERS = [
+    { title: "Join Chime in 2 mins and earn up to $350*",
+      desc: "Meet the most loved banking app. Get up to $350 with a new Chime Checking Account. No Credit Check. No Monthly Fees. Open an account in 2 minutes.*",
+      cta: "Claim now", color: "#0b4f30", img: "assets/collage-chime.png" },
+    { title: "Subscribe to WIN a cruise for 2 to Japan!",
+      desc: "Discover a newsfeed that aligns with your specific interests and you could win a trip for 2 to Japan!",
+      cta: "Call to action", color: "#475975", img: "assets/collage-subscribe.png" },
+    { title: "You’ve Unlocked 15% OFF CAKES",
+      desc: "CAKES are washable, reusable, and made for tricky tops, workouts, swim, and everything in between. Grab 15% off today.*",
+      cta: "Claim 15% off", color: "#d83466", img: "assets/collage-cakes.png" },
+    { title: "Save on Disney+ and Hulu!",
+      desc: "Get 3 months of Disney+ and Hulu for just $4.99/month *",
+      cta: "Claim now", color: "#0a7d8d", img: "assets/collage-disney.png" },
+  ];
+
   const CARD_PACKS = {
     numbers: {
       heightRatio: () => 0.75,
@@ -110,6 +128,53 @@
               <p class="brand-card__desc">${o.desc}</p>
             </div>
             <button type="button" class="brand-card__cta">${o.cta}</button>
+          </div>
+        </div>`;
+      },
+    },
+    collage: {
+      // Figma "Direction 2": one desktop comp, 508×264 (0.5197).
+      // Type/spacing scale proportionally with the card (cqw units in
+      // styles.css); below 440px the card stacks (no mobile comp yet).
+      heightRatio: (w) => (w < 440 ? 1.0 : 0.5197),
+      // settings this direction was designed around (applied on switch);
+      // maxWidth 760 keeps the card under the maxHeight clamp so the
+      // 508:264 aspect (and the collage art geometry) holds.
+      recommends: {
+        snap: "start", peekPct: 3, gap: 24, slides: 5,
+        unitRadius: 4, cardRadius: 20, maxWidth: 760, maxHeight: 400,
+        showTitle: false, dimAmount: 0, scaleAmount: 0, edgeFade: true,
+      },
+      render: (i) => {
+        if (i === 0) {
+          // intro card — headline with the animated reward-count ticker
+          const n = Math.max(1, config.slides - 1);
+          const digits = Array.from({ length: n }, (_, k) =>
+            `<span class="collage-ticker__digit">${k + 1}</span>`).join("");
+          return `
+          <div class="slide__inner collage-card collage-card--intro" style="--tick-n:${n}">
+            <div class="collage-card__body fx-text">
+              <h3 class="collage-intro__title">You’ve unlocked<br>
+                <span class="collage-ticker" role="img" aria-label="${n}"><span class="collage-ticker__reel">${digits}</span></span>&nbsp;rewards</h3>
+              <button type="button" class="collage-card__cta">Claim yours now</button>
+            </div>
+            <div class="collage-card__media">
+              <img class="collage-card__art" src="assets/collage-intro.png" alt="" draggable="false">
+            </div>
+          </div>`;
+        }
+        const o = COLLAGE_OFFERS[(i - 1) % COLLAGE_OFFERS.length];
+        return `
+        <div class="slide__inner collage-card">
+          <div class="collage-card__body fx-text">
+            <div class="collage-card__text">
+              <h3 class="collage-card__title">${o.title}</h3>
+              <p class="collage-card__desc">${o.desc}</p>
+            </div>
+            <button type="button" class="collage-card__cta" style="background:${o.color}">${o.cta}</button>
+          </div>
+          <div class="collage-card__media">
+            <img class="collage-card__art" src="${o.img}" alt="" draggable="false">
           </div>
         </div>`;
       },
@@ -717,7 +782,8 @@
     { tab: "Cards", key: "cardPack", label: "Card design", type: "select", options: [
         { v: "numbers", t: "Numbers (placeholder)" },
         { v: "skeleton", t: "Skeleton (title + graphic)" },
-        { v: "brand", t: "Brand (publisher, images)" } ] },
+        { v: "brand", t: "Brand (publisher, images)" },
+        { v: "collage", t: "Collage (advertiser art)" } ] },
     { tab: "Cards", key: "replayAnim", label: "Card animation replays", type: "select", options: [
         { v: "every", t: "Every visit" },
         { v: "once", t: "Once per session" } ] },

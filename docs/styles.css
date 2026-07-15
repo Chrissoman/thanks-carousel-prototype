@@ -842,6 +842,207 @@
 }
 
 /* ============================================================
+   CARD PACK: collage — Figma "Direction 2"
+   (Experiments 2026 / In-page carousel v2 / section 232:6458)
+   One desktop comp, 508×264: content left 55.5%, collage art right.
+   Type + spacing scale PROPORTIONALLY with the card via cqw units
+   (1cqw = card-width/100; the comp's 508px width → 1px ≈ 0.197cqw).
+   Art PNGs are exported with a 40px transparent margin (shadows +
+   the intro's overflowing logo chips), so the art box is oversized
+   relative to its column: 306×344 canvas over a 225.8×264 area.
+   ============================================================ */
+.pack-collage .slide { container-type: inline-size; display: flex; cursor: pointer; }
+.pack-collage .slide__inner {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  align-items: stretch;
+  place-items: unset;
+  /* the design overflows the card (intro chips poke above the top
+     edge) — the card ITSELF still rounds/paints normally */
+  overflow: visible;
+  /* Figma card shadows replace the default ring */
+  box-shadow:
+    0 0 2px rgba(0, 0, 0, 0.03),
+    0 1px 4px rgba(0, 0, 0, 0.03),
+    0 12px 30px rgba(0, 0, 0, calc(var(--shadow-amt, 0) * var(--centred))),
+    0 10px 44px rgba(0, 0, 0, var(--hover-glow));
+}
+.collage-card__body {
+  flex: 0 0 55.55%;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  gap: 3.94cqw;                       /* 20px @508 */
+  padding: 6.3cqw 3.15cqw 6.3cqw 6.3cqw;   /* 32 / 16 / 32 / 32 */
+}
+.collage-card--intro .collage-card__body { padding-right: 6.3cqw; }
+.collage-card__text {
+  display: flex;
+  flex-direction: column;
+  gap: 1.57cqw;                       /* 8px @508 */
+  /* overflow safety: long copy fades out instead of clipping hard */
+  flex: 0 1 auto;
+  min-height: 0;
+  overflow: hidden;
+  padding-bottom: 14px;
+  margin-bottom: -14px;
+  mask-image: linear-gradient(to bottom, #000 calc(100% - 14px), transparent);
+  -webkit-mask-image: linear-gradient(to bottom, #000 calc(100% - 14px), transparent);
+}
+.thanks-proto .carousel .collage-card__title {
+  font-family: inherit;
+  font-size: 3.54cqw;                 /* 18px @508 — Gramatika Black */
+  line-height: 3.94cqw;               /* 20px */
+  font-weight: 700;                   /* Black has no webfont; 700 renders */
+  letter-spacing: 0;
+  color: #1d1d1d;
+  text-wrap: balance;
+}
+.thanks-proto .carousel .collage-card__desc {
+  font-size: 2.36cqw;                 /* 12px @508 */
+  line-height: 3.15cqw;               /* 16px */
+  font-weight: 400;
+  color: #525252;
+  text-wrap: pretty;
+}
+.thanks-proto .carousel .collage-card__cta {
+  align-self: flex-start;
+  flex: none;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  font: inherit;
+  font-size: 2.56cqw;                 /* 13px @508 */
+  line-height: 3.54cqw;               /* 18px */
+  font-weight: 500;
+  height: 6.3cqw;                     /* 32px */
+  padding: 0 3.94cqw 0.39cqw;         /* 0 / 20 / 2 — Figma optical lift */
+  border: none;
+  border-radius: var(--cta-radius, 96px);
+  background: var(--accent, #006cc1); /* intro: publisher accent;
+                                         offers override inline */
+  color: #fff;
+  cursor: pointer;
+  transition: filter .15s ease, scale .15s ease;
+}
+.thanks-proto .carousel .collage-card__cta:hover { filter: brightness(1.08); }
+.thanks-proto .carousel .collage-card__cta:active { scale: 0.96; }
+
+/* — intro headline: 28/30 with the reward-count ticker chip — */
+.thanks-proto .carousel .collage-intro__title {
+  font-family: inherit;
+  font-size: 5.51cqw;                 /* 28px @508 */
+  line-height: 5.91cqw;               /* 30px line box */
+  font-weight: 700;
+  letter-spacing: 0;
+  color: #1d1d1d;
+}
+/* ticker: 26×28 white chip, digits roll up when the card activates */
+.collage-ticker {
+  display: inline-block;
+  vertical-align: bottom;
+  width: 5.12cqw;                     /* 26px @508 */
+  height: 5.51cqw;                    /* 28px */
+  border-radius: 0.79cqw;             /* 4px */
+  background: #fff;
+  box-shadow:
+    0 0 0 0.5px rgba(0, 0, 0, 0.05),
+    0 0 2px rgba(0, 0, 0, 0.03),
+    0 1px 4px rgba(0, 0, 0, 0.03);
+  overflow: hidden;
+  position: relative;
+}
+/* soft fade at the chip's top/bottom (the design's gradient overlay) */
+.collage-ticker::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  background: linear-gradient(#fff, transparent 30%, transparent 70%, #fff);
+  opacity: 0.8;
+}
+.collage-ticker__reel {
+  display: block;
+  transform: translateY(0);
+  transition: transform 1s var(--ease-apple) 0.4s;
+}
+.collage-ticker__digit {
+  display: block;
+  height: 5.51cqw;
+  line-height: 5.51cqw;
+  text-align: center;
+  font-size: 5.51cqw;
+  font-weight: 700;
+  color: #1d1d1d;
+}
+.pack-collage .slide.is-active .collage-ticker__reel {
+  transform: translateY(calc((1 - var(--tick-n, 1)) * 5.51cqw));
+}
+/* replay policy "once": played cards hold the end state */
+.carousel.replay-once .slide[data-played] .collage-ticker__reel {
+  transform: translateY(calc((1 - var(--tick-n, 1)) * 5.51cqw));
+  transition: none;
+}
+
+/* — collage art (right column) —
+   The PNG canvas is the design's 225.8×264 image area + 40px margin
+   each side (306×344): height 344/264 = 130.3% of the card, shifted
+   up 40/264 = 15.15%, centred; aspect-ratio keeps it true if the
+   maxHeight clamp ever skews the card. */
+.collage-card__media {
+  flex: 1;
+  position: relative;
+  min-width: 0;
+}
+.collage-card__art {
+  position: absolute;
+  top: -15.15%;
+  height: 130.3%;
+  aspect-ratio: 153 / 172;
+  left: 50%;
+  transform: translateX(-50%);
+  user-select: none;
+  pointer-events: none;
+}
+/* scroll-attached drift, like the brand pack's image parallax */
+.carousel.img-parallax .collage-card__art {
+  transform: translateX(calc(-50% + var(--offset, 0) * 6%));
+}
+
+/* — stacked layout on narrow cards (<440px): no mobile comp yet,
+     so this is a sensible default — art on top, fixed-px type — */
+@container (max-width: 439px) {
+  .pack-collage .slide__inner {
+    flex-direction: column;
+    /* height is CONTENT-DRIVEN (no mobile comp yet): the card grows
+       to fit the copy + CTA; --card-h only sets a floor */
+    height: auto;
+    min-height: var(--card-h, 300px);
+  }
+  .collage-card__media {
+    flex: 0 0 190px;
+    order: -1;
+    overflow: hidden;
+    border-radius: var(--card-radius) var(--card-radius) 0 0;
+  }
+  .collage-card__art { height: 118%; top: -9%; }
+  .collage-card__body { flex: 1 1 auto; padding: 20px; gap: 16px; justify-content: flex-start; }
+  .collage-card--intro .collage-card__body { padding-right: 20px; }
+  .thanks-proto .carousel .collage-card__title { font-size: 18px; line-height: 20px; }
+  .thanks-proto .carousel .collage-card__desc { font-size: 12px; line-height: 16px; }
+  .thanks-proto .carousel .collage-card__cta { font-size: 13px; line-height: 18px; height: 32px; padding: 0 20px 2px; }
+  .thanks-proto .carousel .collage-intro__title { font-size: 24px; line-height: 26px; }
+  .collage-ticker { width: 22px; height: 24px; border-radius: 4px; }
+  .collage-ticker__digit { height: 24px; line-height: 24px; font-size: 24px; }
+  .pack-collage .slide.is-active .collage-ticker__reel,
+  .carousel.replay-once .slide[data-played] .collage-ticker__reel {
+    transform: translateY(calc((1 - var(--tick-n, 1)) * 24px));
+  }
+}
+
+/* ============================================================
    Defend the settings panel against host-page CSS.
    Hosts style bare elements (button, select, input, h3…) — this
    blanket + explicit pins keep the panel looking like itself.
@@ -980,6 +1181,6 @@
    ============================================================ */
 @media (prefers-reduced-motion: reduce) {
   .slide__inner, .progress-seg, .progress-seg__fill, .settings-panel,
-  .carousel__playpause svg { transition: none; }
+  .carousel__playpause svg, .collage-ticker__reel { transition: none; }
   .skel-bar { animation: none !important; transform: scaleY(1); opacity: 1; }
 }
