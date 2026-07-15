@@ -46,7 +46,9 @@
     unitBgColor: "#f5f5f5", // custom unit background when auto is off
     unitMargin: 0,        // px outer margin around the unit
     showFooter: true,     // "A Thanks moment · Privacy Policy / Terms apply"
-    edgeFade: false,      // fade the peeking card into the unit bg (start snap)
+    edgeFade: false,      // fade the peeking cards into the unit bg
+    ctaRadius: 96,        // px CTA corner radius (96 = full pill)
+    imageParallax: true,  // brand pack: image scales up + slides with scroll
   };
   const DEFAULTS = { ...config };   // pristine copy for reset / preset merging
 
@@ -65,16 +67,16 @@
   const OFFERS = [
     { brand: "adidas", title: "You’ve scored an extra 20% off adidas Outlet",
       desc: "The season’s best styles just got even better prices. Take an extra 20% off adidas outlet picks with our exclusive code...",
-      cta: "Reveal Code", img: "assets/offer-adidas.png", logo: "assets/logo-adidas.png" },
+      cta: "Reveal Code", img: "assets/offer-adidas.png", imgMobile: "assets/offer-adidas-mobile.jpg", logo: "assets/logo-adidas.png" },
     { brand: "CAKES", title: "You’ve Unlocked 15% OFF CAKES",
       desc: "Treat yourself — 15% off the entire CAKES range for new customers, delivered fresh to your door...",
-      cta: "Claim 15% off", img: "assets/offer-cakes.png", logo: "assets/logo-cakes.png" },
+      cta: "Claim 15% off", img: "assets/offer-cakes.png", imgMobile: "assets/offer-cakes-mobile.jpg", logo: "assets/logo-cakes.png" },
     { brand: "Disney+", title: "Get 10% off your Disney+ Gift Card",
       desc: "Stream the movies and series everyone’s talking about. Grab a discounted gift card for yourself or a friend...",
-      cta: "Get it now", img: "assets/offer-disney.png", logo: "assets/logo-disney.png" },
+      cta: "Get it now", img: "assets/offer-disney.png", imgMobile: "assets/offer-disney-mobile.jpg", logo: "assets/logo-disney.png" },
     { brand: "HelloFresh", title: "You’ve earned 30 FREE HelloFresh meals",
       desc: "Fresh ingredients and easy recipes delivered weekly. Claim 30 free meals across your first boxes...",
-      cta: "Complete survey", img: "assets/offer-hellofresh.png", logo: "assets/logo-hellofresh.png" },
+      cta: "Complete survey", img: "assets/offer-hellofresh.png", imgMobile: "assets/offer-hellofresh-mobile.jpg", logo: "assets/logo-hellofresh.png" },
   ];
 
   const CARD_PACKS = {
@@ -98,7 +100,8 @@
         return `
         <div class="slide__inner brand-card">
           <div class="brand-card__media">
-            <img class="brand-card__img" src="${o.img}" alt="" draggable="false">
+            <img class="brand-card__img brand-card__img--desktop" src="${o.img}" alt="" draggable="false">
+            <img class="brand-card__img brand-card__img--mobile" src="${o.imgMobile || o.img}" alt="" draggable="false">
             <img class="brand-card__logo" src="${o.logo}" alt="${o.brand} logo" draggable="false">
           </div>
           <div class="brand-card__body fx-text">
@@ -544,6 +547,9 @@
       slides.forEach((s, i) => s.style.setProperty("--progress", (targetFor(i) / step).toFixed(4)));
       segments.forEach((seg, i) => seg.style.setProperty("--item-index", (targetFor(i) / step).toFixed(4)));
     }
+    // edge fades span the ACTUAL card row height (cards may be
+    // content-driven and taller than --card-h, e.g. brand mobile)
+    section.style.setProperty("--fade-h", Math.max(0, viewport.clientHeight - 72) + "px");
     publishProgress();
   }
 
@@ -573,10 +579,13 @@
     resizeTimer = setTimeout(recentre, 100);
   });
   if ("ResizeObserver" in window) {
-    let lastW = 0;
+    let lastW = 0, lastH = 0;
     new ResizeObserver(() => {
-      const w = viewport.clientWidth;
-      if (Math.abs(w - lastW) > 1) { lastW = w; recentre(); }
+      const w = viewport.clientWidth, h = viewport.clientHeight;
+      if (Math.abs(w - lastW) > 1 || Math.abs(h - lastH) > 1) {
+        lastW = w; lastH = h;
+        recentre();
+      }
     }).observe(viewport);
   }
 
@@ -595,13 +604,23 @@
       const lum = 0.2126 * parseInt(am[1], 16) + 0.7152 * parseInt(am[2], 16) + 0.0722 * parseInt(am[3], 16);
       section.style.setProperty("--accent-ink", lum < 150 ? "#ffffff" : "#1d1d1f");
     }
+    // Theme is decided FIRST — the unit-bg composite depends on it
+    const dark = config.theme === "dark" || (config.theme === "auto" && hostSurfaceIsDark());
+    root.classList.toggle("theme-dark", dark);
+    // --unit-bg-solid is ALWAYS the effective flat colour of the unit,
+    // so the edge fades match the background exactly in every mode
+    let solid;
     if (config.unitBgAuto) {
       section.style.removeProperty("--unit-bg");
-      section.style.removeProperty("--unit-bg-solid");   // edge fade falls back
+      const base = hostSurfaceRGB() || (dark ? [24, 24, 24] : [255, 255, 255]);
+      const ov = dark ? [255, 255, 255, 0.05] : [0, 0, 0, 0.03];
+      solid = "rgb(" + base.map((c, i) => Math.round(c * (1 - ov[3]) + ov[i] * ov[3])).join(",") + ")";
     } else {
       section.style.setProperty("--unit-bg", config.unitBgColor);
-      section.style.setProperty("--unit-bg-solid", config.unitBgColor);
+      solid = config.unitBgColor;
     }
+    section.style.setProperty("--unit-bg-solid", solid);
+    section.style.setProperty("--cta-radius", config.ctaRadius + "px");
     section.style.setProperty("--fade-rate", config.fadeRate);
     section.style.setProperty("--text-rise", config.textRise + "px");
     section.style.setProperty("--text-scale", config.textScale / 100);
@@ -616,12 +635,11 @@
     Object.keys(CARD_PACKS).forEach((p) =>
       section.classList.toggle("pack-" + p, config.cardPack === p));
     section.classList.toggle("replay-once", config.replayAnim === "once");
-    root.classList.toggle("theme-dark",
-      config.theme === "dark" || (config.theme === "auto" && hostSurfaceIsDark()));
     section.classList.toggle("no-title", !config.showTitle);
     section.classList.toggle("no-playpause", !config.showPlayPause);
     section.classList.toggle("no-footer", !config.showFooter);
     section.classList.toggle("edge-fade", config.edgeFade);
+    section.classList.toggle("img-parallax", config.imageParallax);
     setEasing(config.easing);
     section.style.setProperty("--ease-apple", `cubic-bezier(${config.easing})`);
     autoplayOn = config.autoplay && !REDUCED_MOTION;
@@ -679,6 +697,7 @@
     { tab: "Brand", key: "unitBgColor", label: "Unit background colour", type: "color" },
     { tab: "Brand", key: "unitRadius", label: "Unit corner radius", type: "range", min: 0, max: 40, step: 2, unit: "px" },
     { tab: "Brand", key: "unitMargin", label: "Unit margin", type: "range", min: 0, max: 48, step: 4, unit: "px" },
+    { tab: "Brand", key: "ctaRadius", label: "Button corner radius", type: "range", min: 0, max: 96, step: 4, unit: "px" },
     { tab: "Brand", key: "edgeFade", label: "Edge fade over peek", type: "switch" },
     { tab: "Layout", key: "slides", label: "Slides", type: "range", min: 2, max: 10, step: 1, unit: "" },
     { tab: "Layout", key: "snap", label: "Snap align", type: "select", options: [
@@ -691,6 +710,7 @@
     { tab: "Cards", key: "replayAnim", label: "Card animation replays", type: "select", options: [
         { v: "every", t: "Every visit" },
         { v: "once", t: "Once per session" } ] },
+    { tab: "Cards", key: "imageParallax", label: "Image parallax (brand)", type: "switch" },
     { tab: "Cards", key: "dimAmount", label: "Dim off-centre cards", type: "range", min: 0, max: 90, step: 5, unit: "%" },
     { tab: "Cards", key: "scaleAmount", label: "Shrink off-centre cards", type: "range", min: 0, max: 20, step: 1, unit: "%" },
     { tab: "Cards", key: "shadowAmount", label: "Shadow on centred card", type: "range", min: 0, max: 40, step: 2, unit: "%" },
@@ -851,19 +871,22 @@
     }));
   }
 
-  /* Walk up from the embed root to the first opaque background and
-     judge its luminance — how "auto" theme decides light vs dark. */
-  function hostSurfaceIsDark() {
+  /* Walk up from the embed root to the first opaque background —
+     used for "auto" theme AND to composite the translucent unit fill
+     into a solid colour the edge fades can match exactly. */
+  function hostSurfaceRGB() {
     let el = root.parentElement;
     while (el) {
       const bg = getComputedStyle(el).backgroundColor;
       const m = bg && bg.match(/rgba?\(\s*([\d.]+)[,\s]+([\d.]+)[,\s]+([\d.]+)(?:[,\s/]+([\d.]+))?\s*\)/);
-      if (m && (m[4] === undefined || parseFloat(m[4]) > 0.5)) {
-        return (0.2126 * m[1] + 0.7152 * m[2] + 0.0722 * m[3]) < 110;
-      }
+      if (m && (m[4] === undefined || parseFloat(m[4]) > 0.5)) return [+m[1], +m[2], +m[3]];
       el = el.parentElement;
     }
-    return false;
+    return null;
+  }
+  function hostSurfaceIsDark() {
+    const c = hostSurfaceRGB();
+    return !!c && (0.2126 * c[0] + 0.7152 * c[1] + 0.0722 * c[2]) < 110;
   }
 
   /* ---------- Presets tab ---------- */

@@ -448,19 +448,36 @@
 .thanks-proto.theme-dark .carousel__attribution { color: var(--ink); }
 .thanks-proto.theme-dark .carousel__attribution .soft { color: var(--ink-soft); }
 
-/* ---------- edge fade over the peeking card ----------
-   Positioned over the card row (assumes the title is hidden, as in
-   the brand direction); fades the peek into the unit background. */
+/* ---------- edge fades over the peeking cards ----------
+   BOTH edges, always matching the unit's EFFECTIVE background:
+   --unit-bg-solid is computed in JS (custom colour, or the auto
+   translucent fill composited over the host surface). Height covers
+   the real card row (--fade-h), which may exceed --card-h when cards
+   are content-driven. Assumes the title is hidden (brand direction). */
 .carousel__edgefade {
   position: absolute;
   top: 22px;                       /* unit padding-top */
+  left: 0;
   right: 0;
-  width: 24px;
-  height: var(--card-h, 320px);
+  height: var(--fade-h, var(--card-h, 320px));
   pointer-events: none;
   z-index: 1;
-  background: linear-gradient(to right, transparent, var(--unit-bg-solid, #f5f5f5));
-  border-top-right-radius: var(--unit-radius, 0px);
+}
+.carousel__edgefade::before,
+.carousel__edgefade::after {
+  content: "";
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  width: 24px;
+}
+.carousel__edgefade::before {
+  left: 0;
+  background: linear-gradient(to right, var(--unit-bg-solid, #f5f5f5), transparent);
+}
+.carousel__edgefade::after {
+  right: 0;
+  background: linear-gradient(to left, var(--unit-bg-solid, #f5f5f5), transparent);
 }
 .progress-seg {
   position: relative;
@@ -640,7 +657,8 @@
    Desktop 508×264: image left 37.6% + logo badge, content right.
    Portrait <400px card: image top 40%, content below.
    ============================================================ */
-.pack-brand .slide { container-type: inline-size; }
+.pack-brand .slide { container-type: inline-size; display: flex; }
+.pack-brand .slide__inner { flex: 1; min-width: 0; }
 .pack-brand .slide__inner {
   /* Figma card shadows replace the default ring */
   box-shadow:
@@ -678,8 +696,18 @@
   width: 48px;
   height: 48px;
   border-radius: 50%;
-  background: #fff;
+  /* the exported badge PNG carries its own circle fill — only the
+     1.5px white ring is CSS (no background, which doubled the disc) */
   box-shadow: 0 0 0 1.5px #fff;
+}
+/* mobile image variant hidden except in the mobile tier */
+.brand-card__img--mobile { display: none; }
+
+/* scroll-attached image motion: scaled up off-position, sliding
+   right → left into place as the card reaches its snap point */
+.carousel.img-parallax .brand-card__img {
+  transform: translateX(calc(var(--offset, 0) * 12%))
+             scale(calc(1 + var(--abs, 0) * 0.25));
 }
 .brand-card__body {
   flex: 1;
@@ -694,6 +722,17 @@
   display: flex;
   flex-direction: column;
   gap: 8px;
+  /* overflow safety on fixed-height tiers: text may shrink, and any
+     overflow fades out (the design's "fadeout" treatment). The 14px
+     mask zone lives in padding, so nothing fades when content fits;
+     the negative margin keeps the body gap visually unchanged. */
+  flex: 0 1 auto;
+  min-height: 0;
+  overflow: hidden;
+  padding-bottom: 14px;
+  margin-bottom: -14px;
+  mask-image: linear-gradient(to bottom, #000 calc(100% - 14px), transparent);
+  -webkit-mask-image: linear-gradient(to bottom, #000 calc(100% - 14px), transparent);
 }
 /* — Size=Desktop small (base): 508×266, title 22/26, CTA h40 — */
 .thanks-proto .brand-card__title {
@@ -720,7 +759,7 @@
   height: 40px;
   padding: 0 24px;
   border: none;
-  border-radius: 96px;
+  border-radius: var(--cta-radius, 96px);
   background: var(--accent, #0077c8);
   color: var(--accent-ink, #fff);
   cursor: pointer;
@@ -729,13 +768,22 @@
 .brand-card__cta:hover { filter: brightness(1.08); }
 .brand-card__cta:active { scale: 0.96; }
 
-/* — Size=Mobile: <440px card — 357×282, title 19/22, CTA h32 — */
+/* — Size=Mobile: <440px card — 357-wide comp, title 19/22, CTA h32.
+     Height is CONTENT-DRIVEN (no fixed aspect): the card grows to fit
+     the full text; --card-h only sets a floor. Uses the alternative
+     mobile image crop at a fixed 112px (Figma spec). — */
 @container (max-width: 439px) {
-  .brand-card { flex-direction: column; }
+  .brand-card {
+    flex-direction: column;
+    height: auto;
+    min-height: var(--card-h, 240px);
+  }
   .brand-card__media {
-    flex: 0 0 40%;
+    flex: 0 0 112px;
     border-radius: var(--card-radius) var(--card-radius) 0 0;
   }
+  .brand-card__img--desktop { display: none; }
+  .brand-card__img--mobile { display: block; }
   .brand-card__body {
     padding: 20px;
     gap: 16px;
@@ -745,16 +793,6 @@
   .thanks-proto .brand-card__title { font-size: 19px; line-height: 22px; }
   .thanks-proto .brand-card__desc { font-size: 12px; line-height: 16px; }
   .brand-card__cta { height: 32px; padding: 0 16px; }
-  /* if height runs tight, the description gives way — never the CTA.
-     Overflow fades out (the design's own "fadeout" treatment) instead
-     of hard-clipping mid-line. */
-  .brand-card__text {
-    flex: 0 1 auto;
-    min-height: 0;
-    overflow: hidden;
-    mask-image: linear-gradient(to bottom, #000 calc(100% - 14px), transparent);
-    -webkit-mask-image: linear-gradient(to bottom, #000 calc(100% - 14px), transparent);
-  }
 }
 
 /* — Size=Desktop large: ≥640px card — 701×306, title 28/31, CTA h48 — */
