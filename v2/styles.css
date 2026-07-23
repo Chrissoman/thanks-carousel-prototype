@@ -705,13 +705,15 @@
   /* type scales WITH the card (cqw, comp = 302px wide) — fixed-px
      type under width-scaling art is what caused the text/art overlap
      on wider mobile cards */
+  /* clear 16px between the art band (the logo chip reaches its
+     bottom edge) and the text */
   .collage-card__text {
     order: 0;
-    margin: -4.3% 7.95cqw 0;            /* 24px @302 */
+    margin: 16px 7.95cqw 0;
     gap: 2.65cqw;                        /* 8px */
     text-align: center;
   }
-  .collage-card--intro .collage-card__text { margin-top: 5.3%; }
+  .collage-card--intro .collage-card__text { margin-top: 16px; }
   .thanks-proto .carousel .collage-card__title { font-size: 6.29cqw; line-height: 7.28cqw; text-align: center; }   /* 19/22 */
   .thanks-proto .carousel .collage-card__desc { font-size: 3.97cqw; line-height: 5.3cqw; text-align: center; }     /* 12/16 */
   /* CTA strip: full width, pinned to the card bottom */
