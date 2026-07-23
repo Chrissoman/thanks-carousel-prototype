@@ -566,14 +566,30 @@
   position: absolute;
   transform-origin: 0 0;
 }
-/* inner card: ALL animation lives here, pivoting from the card's
-   bottom-left corner; transition makes hover interruptible */
+/* inner card: pivots from its bottom-left corner. Its pose is a
+   PURE FUNCTION of scroll position (like the parallax/fade): the
+   fan is over-fanned by --fan-from away from the snap point and
+   scrubs closed as the card centres — entrance and exit are the
+   same continuous motion, driven by autoplay and manual scroll
+   alike. Hover rides on top through its own registered vars, so
+   only the hover part transitions — scroll updates stay instant. */
+@property --fan-hov { syntax: "<angle>"; initial-value: 0deg; inherits: false; }
+@property --fan-scale { syntax: "<number>"; initial-value: 1; inherits: false; }
+.fan {
+  /* 0 at the snap point → 1 half-a-card away (fully fanned) */
+  --fan-open: clamp(0, calc(var(--abs, 0) * 2), 1);
+}
 .fan-card {
   position: absolute;
   inset: 0;
   transform-origin: 0% 100%;
-  transition: transform .4s cubic-bezier(.2, 0, 0, 1);
+  transition: --fan-hov .4s cubic-bezier(.2, 0, 0, 1),
+              --fan-scale .4s cubic-bezier(.2, 0, 0, 1);
   will-change: transform;
+}
+.fan--d .fan-card {
+  transform: rotate(calc(var(--fan-from, 0deg) * var(--fan-open, 0) + var(--fan-hov, 0deg)))
+             scale(var(--fan-scale, 1));
 }
 /* the front card clips its photo; 103% overdraw prevents an edge
    hairline of background colour */
@@ -636,29 +652,19 @@
   border-radius: 50%;
 }
 
-/* — entrance (fan offers, desktop): the cards arrive OVER-fanned
-     and settle to rest — rotation only, so nothing flashes; all
-     positional motion stays scroll-driven. fill: backwards is
-     LOAD-BEARING — it holds the pose through the delay then
-     RELEASES the transform so the hover fan (a transition) can take
-     over. Re-fires on every activation because .is-active is
-     removed on deactivate. Mobile gets its own treatment later. — */
-.slide.is-active .fan--anim.fan--d .fan-card {
-  animation: tc-unfan .5s cubic-bezier(.2, 0, 0, 1) .3s backwards;
-}
-@keyframes tc-unfan {
-  from { transform: rotate(var(--fan-from, 0deg)); }
-  to   { transform: none; }
-}
-
-/* — hover (pointer devices, fan offers only): the fan spreads from
-     each card's bottom-left pivot; the logo chip stays put and
-     twists about its own centre — */
+/* — hover (pointer devices, fan offers only): gated to the CURRENT
+     card while the carousel is STATIONARY (.is-moving is set on
+     every scroll frame and cleared on settle), so cards passing
+     under a resting cursor never trigger it. The fan spreads from
+     each card's bottom-left pivot and the whole spread leans
+     slightly right (+1.25° on every card, same pivot); the logo
+     chip stays put and twists about its own centre. — */
 @media (hover: hover) {
-  .collage-card__media:hover .fan--anim.fan--d .fan-card {
-    transform: rotate(var(--fan-hover, 0deg)) scale(1.05);
+  .carousel:not(.is-moving) .slide.is-current .collage-card__media:hover .fan--anim.fan--d .fan-card {
+    --fan-hov: calc(var(--fan-hover, 0deg) + 1.25deg);
+    --fan-scale: 1.05;
   }
-  .collage-card__media:hover .fan--anim.fan--d .fan-chip {
+  .carousel:not(.is-moving) .slide.is-current .collage-card__media:hover .fan--anim.fan--d .fan-chip {
     transform: rotate(10deg);
   }
 }
@@ -1014,7 +1020,9 @@
 @media (prefers-reduced-motion: reduce) {
   .slide__inner, .progress-seg, .progress-seg__fill, .settings-panel,
   .carousel__playpause svg, .collage-ticker__reel, .fan-card, .fan-chip { transition: none; }
-  .fan-card { animation: none !important; }
-  .collage-card__media:hover .fan--anim.fan--d .fan-card,
-  .collage-card__media:hover .fan--anim.fan--d .fan-chip { transform: none; }
+  .carousel:not(.is-moving) .slide.is-current .collage-card__media:hover .fan--anim.fan--d .fan-card {
+    --fan-hov: 0deg;
+    --fan-scale: 1;
+  }
+  .carousel:not(.is-moving) .slide.is-current .collage-card__media:hover .fan--anim.fan--d .fan-chip { transform: none; }
 }

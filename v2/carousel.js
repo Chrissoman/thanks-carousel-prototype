@@ -559,6 +559,7 @@
      ============================================================ */
   function onSettle() {
     section.classList.remove("is-scrubbing");
+    section.classList.remove("is-moving");   // hover re-arms once stationary
     if (programmatic) { programmatic = false; return; }
     const idx = nearestIndex();
     if (idx !== current) { current = idx; render(); }
@@ -576,6 +577,7 @@
     lastScrollLeft = sl;
     lastScrollTs = now;
     publishProgress();
+    section.classList.add("is-moving");   // gates hover during ANY scroll
     if (!programmatic) {
       pauseProgress();
       section.classList.add("is-scrubbing");
