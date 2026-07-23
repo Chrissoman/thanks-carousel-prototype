@@ -241,6 +241,8 @@
   margin: auto;
   width: 24px; height: 24px;
 }
+/* steppers sit as a tight pair (pill → pair keeps the 8px gap) */
+.carousel__step--next { margin-left: -4px; }
 /* play/pause icons cross-fade (opacity/scale/blur); glyphs are
    drawn on the same 24×24 grid as the chip */
 .carousel__playpause svg {
@@ -256,10 +258,10 @@
               scale .3s cubic-bezier(0.2, 0, 0, 1),
               filter .3s cubic-bezier(0.2, 0, 0, 1);
 }
-.carousel__playpause .icon-replay { fill: none; }
+/* ended state shows the plain play icon (tapping it replays) */
 .carousel:not(.is-paused):not(.is-ended) .carousel__playpause .icon-pause,
-.carousel.is-paused:not(.is-ended) .carousel__playpause .icon-play,
-.carousel.is-ended .carousel__playpause .icon-replay {
+.carousel.is-paused .carousel__playpause .icon-play,
+.carousel.is-ended .carousel__playpause .icon-play {
   opacity: 1;
   scale: 1;
   filter: blur(0);
@@ -291,6 +293,13 @@
    words 24% black */
 .thanks-proto .carousel .carousel__attribution { color: #737373; }
 .thanks-proto .carousel .carousel__attribution .soft { color: rgba(0, 0, 0, 0.24); }
+/* footer links (Thanks, Privacy Policy): quiet until hovered */
+.thanks-proto .carousel .carousel__footer a {
+  color: inherit;
+  text-decoration: none;
+  cursor: pointer;
+}
+.thanks-proto .carousel .carousel__footer a:hover { text-decoration: underline; }
 .thanks-proto.theme-dark .carousel__footer { color: var(--ink-soft); }
 .thanks-proto.theme-dark .carousel__attribution { color: var(--ink-soft); }
 .thanks-proto.theme-dark .carousel__attribution .soft { color: rgba(255, 255, 255, 0.35); }
@@ -443,7 +452,7 @@
   cursor: pointer;
   transition: filter .15s ease, scale .15s ease;
 }
-.thanks-proto .carousel .collage-card__cta:hover { filter: brightness(1.08); }
+.thanks-proto .carousel .collage-card__cta:hover { filter: brightness(1.08); scale: 1.03; }
 .thanks-proto .carousel .collage-card__cta:active { scale: 0.96; }
 /* the splash CTA is publisher-accent coloured — its label uses the
    luminance-derived ink (dark on light accents) */
@@ -525,12 +534,23 @@
   position: absolute;
   inset: 0;
   pointer-events: none;
+  /* the art rides the text treatment: same parallax AND fade */
+  opacity: calc(1 - var(--abs) * var(--fade-rate, 3.2));
   transform: translateX(calc((var(--offset, 0) + var(--offset, 0) * 1.6) * var(--caption-offset, 120px)));
 }
 .fan__img {
   position: absolute;
   height: auto;
   user-select: none;
+}
+/* frosted disc under the fan's logo chip (Figma BLURRED CONTAINER:
+   backdrop blur 6 — can't live in a PNG export, so it's an element) */
+.fan__blur {
+  position: absolute;
+  border-radius: 50%;
+  background: rgba(255, 255, 255, 0.1);
+  backdrop-filter: blur(6px);
+  -webkit-backdrop-filter: blur(6px);
 }
 .fan--m { display: none; }
 /* desktop line-break variant for the splash headline */

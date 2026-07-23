@@ -43,7 +43,6 @@
       <button class="carousel__playpause" type="button" aria-label="Pause offers" data-playpause>
         <svg class="icon-pause" viewBox="0 0 24 24" aria-hidden="true"><rect x="8" y="8" width="3" height="8" rx="1"/><rect x="13" y="8" width="3" height="8" rx="1"/></svg>
         <svg class="icon-play" viewBox="0 0 24 24" aria-hidden="true"><path d="M9.25 8.80425C9.25 8.01881 10.114 7.53997 10.78 7.95625L15.8932 11.152C16.5199 11.5437 16.5199 12.4563 15.8932 12.848L10.78 16.0438C10.114 16.46 9.25 15.9812 9.25 15.1958V8.80425Z"/></svg>
-        <svg class="icon-replay" viewBox="0 0 24 24" aria-hidden="true"><g fill="none" stroke="currentColor" stroke-width="2.1" stroke-linecap="round" stroke-linejoin="round"><path d="M16.66 9.35A5.1 5.1 0 1 0 17.1 12"/><path d="M17.1 5.6v3.4h-3.4"/></g></svg>
       </button>
       <button class="carousel__step carousel__step--prev" type="button" aria-label="Previous offer" data-prev>
         <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M13.6 8.2 9.8 12l3.8 3.8" fill="none" stroke="currentColor" stroke-width="2.1" stroke-linecap="round" stroke-linejoin="round"/></svg>
@@ -53,10 +52,11 @@
       </button>
     </div>
 
-    <!-- Attribution footer — Figma "Card in unit" -->
+    <!-- Attribution footer — Figma "Card in unit"; Thanks + Privacy
+         Policy are links (hover underline) -->
     <div class="carousel__footer">
-      <span class="carousel__attribution"><span class="soft">A</span> Thanks <span class="soft">moment</span></span>
-      <span class="carousel__terms">Privacy Policy</span>
+      <span class="carousel__attribution"><span class="soft">A</span> <a href="#" onclick="return false">Thanks</a> <span class="soft">moment</span></span>
+      <a class="carousel__terms" href="#" onclick="return false">Privacy Policy</a>
     </div>
 
     <!-- Edge fade over the peeking cards -->

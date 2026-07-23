@@ -143,9 +143,18 @@
     return s;
   }
   function fanMarkup(key) {
+    // frosted disc under the logo chip — the chip's backdrop blur
+    // can't survive a PNG export, so it's a real element at the
+    // logo's exact (unmargined) box
+    const blur = (g, area) => {
+      const pct = (v, base) => +(v / base * 100).toFixed(2) + "%";
+      return `<span class="fan__blur" style="left:${pct(g.x, area.w)};top:${pct(g.y, area.h)};width:${pct(g.w, area.w)};height:${pct(g.h, area.h)};"></span>`;
+    };
     const imgs = (spec, area, suffix) =>
-      ["back", "mid", "front", "logo"].map((part) =>
-        `<img class="fan__img fan__${part}" src="assets/fan-${key}${suffix}-${part}.png" style="${artStyle(spec[part], area)}" alt="" draggable="false">`).join("");
+      ["back", "mid", "front"].map((part) =>
+        `<img class="fan__img fan__${part}" src="assets/fan-${key}${suffix}-${part}.png" style="${artStyle(spec[part], area)}" alt="" draggable="false">`).join("")
+      + blur(spec.logo, area)
+      + `<img class="fan__img fan__logo" src="assets/fan-${key}${suffix}-logo.png" style="${artStyle(spec.logo, area)}" alt="" draggable="false">`;
     return `
       <div class="fan fan--d">${imgs(FAN_D, AREA_D, "")}</div>
       <div class="fan fan--m">${imgs(FAN_M, AREA_M, "-m")}</div>`;
