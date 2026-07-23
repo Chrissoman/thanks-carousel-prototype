@@ -583,7 +583,11 @@
   .collage-card__body { display: contents; }
   .collage-card__media {
     order: -1;
-    flex: 0 0 104px;
+    flex: none;
+    /* the art is sized in % of the band's WIDTH, so the band must
+       keep the comp's aspect (254×104) as the card scales — a fixed
+       height lets wide cards spill art into the text */
+    aspect-ratio: 254 / 104;
     margin: 40px 24px 0;               /* art band sits 40px down */
     position: relative;
     min-width: 0;
@@ -591,15 +595,16 @@
   }
   .fan--d { display: none; }
   .fan--m { display: block; }
-  /* text starts 13px INTO the art band's box (Figma: band bottom 144,
-     text top 131 — the art floats high, so no visual overlap) */
+  /* text starts 13px INTO the art band's box at the 302 comp (band
+     bottom 144, text top 131) — width-relative so it scales with the
+     card; the art floats high, so no visual overlap */
   .collage-card__text {
     order: 0;
-    margin: -13px 24px 0;
+    margin: -4.3% 24px 0;
     gap: 8px;
     text-align: center;
   }
-  .collage-card--intro .collage-card__text { margin-top: 16px; }
+  .collage-card--intro .collage-card__text { margin-top: 5.3%; }
   .thanks-proto .carousel .collage-card__title { font-size: 19px; line-height: 22px; text-align: center; }
   .thanks-proto .carousel .collage-card__desc { font-size: 12px; line-height: 16px; text-align: center; }
   /* CTA strip: full width, pinned to the card bottom */
