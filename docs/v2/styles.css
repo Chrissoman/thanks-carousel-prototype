@@ -542,27 +542,128 @@
   position: relative;
   min-width: 0;
 }
+/* registered so the hover lean can transition INSIDE the composed
+   transform without dragging the scroll parallax along */
+@property --fan-lean { syntax: "<angle>"; initial-value: 0deg; inherits: false; }
+
 .fan {
   position: absolute;
   inset: 0;
   pointer-events: none;
-  /* the art rides the text treatment: same parallax AND fade */
+  /* the art rides the text treatment: same parallax AND fade; the
+     hover lean composes into the same transform via its own var */
   opacity: calc(1 - var(--abs) * var(--fade-rate, 3.2));
-  transform: translateX(calc((var(--offset, 0) + var(--offset, 0) * 1.6) * var(--caption-offset, 120px)));
+  transform: translateX(calc((var(--offset, 0) + var(--offset, 0) * 1.6) * var(--caption-offset, 120px)))
+             rotate(var(--fan-lean, 0deg));
+  transition: --fan-lean .4s cubic-bezier(.2, 0, 0, 1);
+}
+.fan__cards {
+  position: absolute;
+  inset: 0;
 }
 .fan__img {
   position: absolute;
   height: auto;
   user-select: none;
 }
-/* frosted disc under the fan's logo chip (Figma BLURRED CONTAINER:
-   backdrop blur 6 — can't live in a PNG export, so it's an element) */
-.fan__blur {
+/* wrapper: static placement only (position/size/resting rotation,
+   top-left origin, z-order) — NEVER animated */
+.cw {
   position: absolute;
+  transform-origin: 0 0;
+}
+/* inner card: ALL animation lives here, pivoting from the card's
+   bottom-left corner; transition makes hover interruptible */
+.fan-card {
+  position: absolute;
+  inset: 0;
+  transform-origin: 0% 100%;
+  transition: transform .4s cubic-bezier(.2, 0, 0, 1);
+  will-change: transform;
+}
+/* the front card clips its photo; 103% overdraw prevents an edge
+   hairline of background colour */
+.fan-card--front {
+  overflow: hidden;
+  background-size: auto 103%;
+  background-position: center;
+  background-repeat: no-repeat;
+}
+/* radii + shadow stacks (from Figma) scale with the card via cqw */
+.fan--d .fan-card--back,
+.fan--d .fan-card--mid { border-radius: 2.36cqw; }
+.fan--d .fan-card--front { border-radius: 2.27cqw; }
+.fan--d .fan-card--back {
+  box-shadow:
+    0 0 0.4cqw rgba(0, 0, 0, 0.03),
+    0 3.94cqw 9.45cqw rgba(0, 0, 0, 0.05),
+    0 7.87cqw 18.9cqw rgba(0, 0, 0, 0.05);
+}
+.fan--d .fan-card--mid { box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.05); }
+.fan--d .fan-card--front {
+  box-shadow:
+    -0.2cqw 0.59cqw 1.38cqw rgba(0, 0, 0, 0.10),
+    -0.79cqw 2.56cqw 2.56cqw rgba(0, 0, 0, 0.09),
+    -1.97cqw 5.71cqw 3.54cqw rgba(0, 0, 0, 0.05),
+    -3.54cqw 10.04cqw 4.13cqw rgba(0, 0, 0, 0.01);
+}
+.fan--m .fan-card--back { border-radius: 1.75cqw; }
+.fan--m .fan-card--mid { border-radius: 2.38cqw; }
+.fan--m .fan-card--front { border-radius: 3.11cqw; }
+.fan--m .fan-card--back,
+.fan--m .fan-card--mid { box-shadow: 0 1.5cqw 2cqw rgba(0, 0, 0, 0.12); }
+.fan--m .fan-card--front {
+  box-shadow:
+    0 0.99cqw 1.99cqw rgba(0, 0, 0, 0.10),
+    0.33cqw 3.31cqw 3.31cqw rgba(0, 0, 0, 0.09),
+    0.66cqw 7.62cqw 4.64cqw rgba(0, 0, 0, 0.05);
+}
+/* logo chip: frosted disc (Figma BLURRED CONTAINER) + ringed mark */
+.fan-chip {
+  position: absolute;
+  inset: 0;
   border-radius: 50%;
   background: rgba(255, 255, 255, 0.1);
   backdrop-filter: blur(6px);
   -webkit-backdrop-filter: blur(6px);
+  padding: 5.5%;
+}
+.fan-chip__logo {
+  display: block;
+  width: 100%;
+  height: 100%;
+  border-radius: 50%;
+  box-shadow: 0 0 0 0.59cqw rgba(255, 255, 255, 0.2);
+}
+.fan--m .fan-chip__logo { box-shadow: 0 0 0 0.99cqw rgba(255, 255, 255, 0.2); }
+
+/* — entrance: art rises in while the cards arrive OVER-fanned and
+     settle to rest. fill: backwards is LOAD-BEARING — it holds the
+     pose through the delay then RELEASES the transform so the hover
+     fan (a transition) can take over. Re-fires on every activation
+     because .is-active is removed on deactivate. — */
+.slide.is-active .fan__cards {
+  animation: tc-rise .45s cubic-bezier(.2, 0, 0, 1) .26s backwards;
+}
+.slide.is-active .fan-card {
+  animation: tc-unfan .5s cubic-bezier(.2, 0, 0, 1) .3s backwards;
+}
+@keyframes tc-rise {
+  from { opacity: 0; transform: translateY(16px); }
+  to   { opacity: 1; transform: none; }
+}
+@keyframes tc-unfan {
+  from { transform: rotate(var(--fan-from, 0deg)); }
+  to   { transform: none; }
+}
+
+/* — hover (pointer devices): the fan spreads from each card's
+     bottom-left pivot and the whole frame leans right — */
+@media (hover: hover) {
+  .collage-card__media:hover .fan--d .fan-card {
+    transform: rotate(var(--fan-hover, 0deg)) scale(1.05);
+  }
+  .collage-card__media:hover .fan--d { --fan-lean: 1.5deg; }
 }
 .fan--m { display: none; }
 /* desktop line-break variant for the splash headline */
@@ -912,5 +1013,8 @@
    ============================================================ */
 @media (prefers-reduced-motion: reduce) {
   .slide__inner, .progress-seg, .progress-seg__fill, .settings-panel,
-  .carousel__playpause svg, .collage-ticker__reel { transition: none; }
+  .carousel__playpause svg, .collage-ticker__reel, .fan, .fan-card { transition: none; }
+  .fan__cards, .fan-card { animation: none !important; }
+  .collage-card__media:hover .fan--d .fan-card { transform: none; }
+  .collage-card__media:hover .fan--d { --fan-lean: 0deg; }
 }

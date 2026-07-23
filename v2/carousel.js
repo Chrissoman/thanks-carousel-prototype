@@ -79,11 +79,11 @@
      `art` offers use a composite export. Every asset carries a 40px
      transparent margin (shadow bleed + overflowing elements). */
   const OFFERS = [
-    { key: "adidas", fan: true,
+    { key: "adidas", fan: true, fanBack: "#072d42", fanMid: "#dfb45a",
       title: "You’ve scored an extra 20% off adidas Outlet",
       desc: "The season’s best styles just got even better prices. Take an extra 20% off adidas outlet picks with our exclusive code...",
       cta: "Reveal Code", color: "#000000" },
-    { key: "disney", fan: true,
+    { key: "disney", fan: true, fanBack: "#263044", fanMid: "#0d95a5",
       title: "Save on Disney+ and Hulu!",
       desc: "Get 3 months of Disney+ and Hulu for just $4.99/month.",
       cta: "Claim now", color: "#0a7d8d" },
@@ -91,11 +91,11 @@
       title: "Subscribe to WIN a cruise for 2 to Japan!",
       desc: "Discover a newsfeed that aligns with your specific interests and you could win a trip for 2 to Japan!",
       cta: "Call to action", color: "#475975" },
-    { key: "cakes", fan: true,
+    { key: "cakes", fan: true, fanBack: "#263044", fanMid: "#fdb0c4",
       title: "You’ve Unlocked 15% OFF CAKES",
       desc: "CAKES are washable, reusable, and made for tricky tops, workouts, swim, and everything in between. Grab 15% off today.",
       cta: "Claim 15% off", color: "#d83466" },
-    { key: "chime", fan: true,
+    { key: "chime", fan: true, fanBack: "#f9d731", fanMid: "#1ec677",
       title: "Join Chime in 2 mins and earn up to $350*",
       desc: "Meet the most loved banking app. Get up to $350 with a new Chime Checking Account. No Credit Check. No Monthly Fees. Open an account in 2 minutes.",
       cta: "Claim now", color: "#0b4f30" },
@@ -144,27 +144,41 @@
     }
     return s;
   }
-  function fanMarkup(key) {
-    // frosted disc under the logo chip — the chip's backdrop blur
-    // can't survive a PNG export, so it's a real element at the
-    // logo's exact (unmargined) box
-    const blur = (g, area) => {
-      const pct = (v, base) => +(v / base * 100).toFixed(2) + "%";
-      return `<span class="fan__blur" style="left:${pct(g.x, area.w)};top:${pct(g.y, area.h)};width:${pct(g.w, area.w)};height:${pct(g.h, area.h)};"></span>`;
-    };
-    const imgs = (spec, area, suffix) =>
-      ["back", "mid", "front"].map((part) =>
-        `<img class="fan__img fan__${part}" src="assets/fan-${key}${suffix}-${part}.png" style="${artStyle(spec[part], area)}" alt="" draggable="false">`).join("")
-      + blur(spec.logo, area)
-      + `<img class="fan__img fan__logo" src="assets/fan-${key}${suffix}-logo.png" style="${artStyle(spec.logo, area)}" alt="" draggable="false">`;
+
+  /* ---------- fan elements: wrapper/inner split ----------
+     .cw (wrapper) = static PLACEMENT only — position, size, resting
+     rotation (top-left origin), z-order. Never animated.
+     .fan-card (inner) = ALL animation — entrance unfan + hover fan,
+     pivoting from its bottom-left corner. Placement and animation
+     transforms live on different elements so they can never fight.
+     --fan-from = entrance over-fan; --fan-hover = hover delta
+     (deltas RELATIVE to the resting pose, back → front). */
+  const FAN_Z = { back: 1, mid: 2, front: 3, logo: 4 };
+  const FAN_ANIM = {
+    back:  "--fan-from:-8deg;--fan-hover:-4deg;",
+    mid:   "--fan-from:-3.5deg;--fan-hover:-1.5deg;",
+    front: "--fan-from:2deg;--fan-hover:1deg;",
+  };
+  function fanElStyle(g, area, part) {
+    const pct = (v, base) => +(v / base * 100).toFixed(2) + "%";
+    let s = `left:${pct(g.x, area.w)};top:${pct(g.y, area.h)};width:${pct(g.w, area.w)};height:${pct(g.h, area.h)};z-index:${FAN_Z[part]};`;
+    if (g.rot) s += `transform:rotate(${-g.rot}deg);`;
+    return s;
+  }
+  function fanMarkup(o) {
+    const tier = (spec, area, suffix) => `
+      <div class="cw" style="${fanElStyle(spec.back, area, "back")}"><div class="fan-card fan-card--back" style="${FAN_ANIM.back}background:${o.fanBack}"></div></div>
+      <div class="cw" style="${fanElStyle(spec.mid, area, "mid")}"><div class="fan-card fan-card--mid" style="${FAN_ANIM.mid}background:${o.fanMid}"></div></div>
+      <div class="cw" style="${fanElStyle(spec.front, area, "front")}"><div class="fan-card fan-card--front" style="${FAN_ANIM.front}background-image:url(assets/photo-${o.key}${suffix}.jpg)"></div></div>
+      <div class="cw" style="${fanElStyle(spec.logo, area, "logo")}"><div class="fan-chip"><img class="fan-chip__logo" src="assets/logomark-${o.key}.png" alt="" draggable="false"></div></div>`;
     return `
-      <div class="fan fan--d">${imgs(FAN_D, AREA_D, "")}</div>
-      <div class="fan fan--m">${imgs(FAN_M, AREA_M, "-m")}</div>`;
+      <div class="fan fan--d"><div class="fan__cards">${tier(FAN_D, AREA_D, "")}</div></div>
+      <div class="fan fan--m"><div class="fan__cards">${tier(FAN_M, AREA_M, "-m")}</div></div>`;
   }
   function compositeMarkup(name, geomM) {
     return `
-      <div class="fan fan--d"><img class="fan__img" src="assets/art-${name}.png" style="${artStyle(COMPOSITE_D, AREA_D)}" alt="" draggable="false"></div>
-      <div class="fan fan--m"><img class="fan__img" src="assets/art-${name}-m.png" style="${artStyle(geomM, AREA_M)}" alt="" draggable="false"></div>`;
+      <div class="fan fan--d"><div class="fan__cards"><img class="fan__img" src="assets/art-${name}.png" style="${artStyle(COMPOSITE_D, AREA_D)}" alt="" draggable="false"></div></div>
+      <div class="fan fan--m"><div class="fan__cards"><img class="fan__img" src="assets/art-${name}-m.png" style="${artStyle(geomM, AREA_M)}" alt="" draggable="false"></div></div>`;
   }
 
   function renderCard(i) {
@@ -190,7 +204,7 @@
     }
     const o = OFFERS[(i - (config.splashIntro ? 1 : 0)) % OFFERS.length];
     const ctaStyle = config.buttonColorMode === "advertiser" ? ` style="background:${o.color}"` : "";
-    const media = o.fan ? fanMarkup(o.key) : compositeMarkup(o.key, SUBSCRIBE_M);
+    const media = o.fan ? fanMarkup(o) : compositeMarkup(o.key, SUBSCRIBE_M);
     return `
     <div class="slide__inner collage-card">
       <div class="collage-card__body fx-text">
