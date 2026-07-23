@@ -6,6 +6,12 @@
       "runtimeExecutable": "node",
       "runtimeArgs": ["prototype/server.js"],
       "port": 4599
+    },
+    {
+      "name": "carousel-v2",
+      "runtimeExecutable": "node",
+      "runtimeArgs": ["v2/server.js"],
+      "port": 4600
     }
   ]
 }

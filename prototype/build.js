@@ -11,7 +11,10 @@ const { ROOT, readManifest, readEmbed, assemblePage, assembleIndex } = require("
 const DOCS = path.join(ROOT, "..", "docs");
 const STATIC_FLAG = "<script>window.__THANKS_STATIC__=true</script>";
 
-fs.rmSync(DOCS, { recursive: true, force: true });
+// clear the v1 output only — docs/v2 belongs to the v2 build
+for (const f of fs.existsSync(DOCS) ? fs.readdirSync(DOCS) : []) {
+  if (f !== "v2") fs.rmSync(path.join(DOCS, f), { recursive: true, force: true });
+}
 fs.mkdirSync(path.join(DOCS, "fonts"), { recursive: true });
 
 // assets

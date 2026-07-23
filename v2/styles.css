@@ -1,0 +1,879 @@
+/* ============================================================
+   Thanks carousel v2 — EMBED-SCOPED styles. Everything lives
+   under .thanks-proto so this stylesheet can be injected into
+   partner pages without touching their styles.
+   Single card design: Collage (Figma "Direction 2").
+   ============================================================ */
+
+/* Gramatika — Thanks brand font (weights 400/500/700) */
+@font-face {
+  font-family: "Gramatika";
+  src: url("fonts/gramatika-400.woff2") format("woff2");
+  font-weight: 400;
+  font-style: normal;
+  font-display: swap;
+}
+@font-face {
+  font-family: "Gramatika";
+  src: url("fonts/gramatika-500.woff2") format("woff2");
+  font-weight: 500;
+  font-style: normal;
+  font-display: swap;
+}
+@font-face {
+  font-family: "Gramatika";
+  src: url("fonts/gramatika-700.woff2") format("woff2");
+  font-weight: 700;
+  font-style: normal;
+  font-display: swap;
+}
+
+.thanks-proto,
+.thanks-proto * { box-sizing: border-box; margin: 0; padding: 0; }
+
+.thanks-proto {
+  /* behave in ANY host container: fill the slot; if the slot is a
+     grid row, span it fully. NO margins here — outer spacing belongs
+     to each page's placement CSS (pages.json), not the embed. */
+  width: 100%;
+  min-width: 0;
+  grid-column: 1 / -1;
+}
+
+.thanks-proto {
+  --ink: #1d1d1f;
+  --ink-soft: #6e6e73;
+  --line: #e5e5e5;
+  --card-radius: 20px;
+
+  /* Apple's standard easing */
+  --ease-apple: cubic-bezier(0.4, 0, 0.6, 1);
+
+  /* Dotnav (Figma "controls": 6px dots, #d4d4d4 track, near-black
+     fill; 34px active pill) */
+  --dot-size: 6px;
+  --dot-bg: #d4d4d4;
+  --dot-bg-hover: #b9b9be;
+  --dot-active-track: #d4d4d4;
+  --dot-active-fill: #171717;
+  --dot-active-width: 34px;
+
+  font-family: "Gramatika", -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+  color: var(--ink);
+  line-height: 1.4;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  text-align: left;      /* hosts sometimes centre the slot */
+}
+
+/* Dark theme (per-publisher setting): flip the unit inks. Cards
+   stay light until the dark card design lands. Dots keep their
+   light-surface colours — they sit inside the white pill. */
+.thanks-proto.theme-dark {
+  --ink: #f5f5f7;
+  --ink-soft: #a1a1a6;
+  --line: rgba(255, 255, 255, 0.18);
+}
+.thanks-proto.theme-dark .slide__inner,
+.thanks-proto.theme-dark .settings-panel {
+  --ink: #1d1d1f;
+  --ink-soft: #6e6e73;
+  --line: #e5e5e5;
+  color: #1d1d1f;
+}
+
+/* ============================================================
+   Carousel section — geometry is computed in JS (sizeCards):
+     --card-w / --card-h / --edge / --spacer / --gap
+   ============================================================ */
+.carousel {
+  --gap: 24px;
+  --edge: 56px;
+  --spacer: 40px;
+  position: relative;              /* anchors the edge-fade overlay */
+  background: var(--unit-bg, rgba(0, 0, 0, 0.03));
+  border-radius: var(--unit-radius, 4px);
+  margin: var(--unit-margin, 0px);
+  /* unit rhythm (Figma): desktop 24/20 · mobile 20/16, set in JS */
+  padding-top: var(--unit-pad-top, 24px);
+  padding-bottom: 8px;
+}
+.thanks-proto.theme-dark .carousel { background: var(--unit-bg, rgba(255, 255, 255, 0.05)); }
+
+/* ============================================================
+   Scroll viewport + track (snap: start — fixed in v2)
+   ============================================================ */
+.carousel__viewport {
+  overflow-x: auto;
+  overflow-y: hidden;
+  scroll-snap-type: x mandatory;
+  scroll-padding-inline-start: var(--edge);
+  -webkit-overflow-scrolling: touch;
+  /* No CSS scroll-behavior: programmatic scrolls are JS-eased. */
+  outline: none;
+  scrollbar-width: none;
+  /* reserve painting room for card shadows inside the scroller,
+     cancel it outside */
+  padding-block: 16px 56px;
+  margin-block: -16px -56px;
+}
+.carousel__viewport::-webkit-scrollbar { display: none; }
+
+.carousel__track {
+  display: flex;
+  gap: var(--gap);
+  list-style: none;
+  width: max-content;
+}
+/* real, scrollable end-gutters so the first & last slides can
+   reach their snap points */
+.carousel__track::before,
+.carousel__track::after {
+  content: "";
+  flex: 0 0 var(--spacer);
+}
+
+.slide {
+  flex: 0 0 var(--card-w, 300px);
+  scroll-snap-align: start;
+  container-type: inline-size;
+  display: flex;
+  cursor: pointer;
+
+  /* Shared scroll-position vars: every effect on this slide —
+     card scale AND text/art parallax — derives from these.
+     --offset  : signed distance from its snap point, in cards
+     --abs     : |offset|
+     --centred : 1 at the snap point → 0 one card away            */
+  --offset: calc(var(--progress, 0) - var(--autoplay-progress, 0));
+  --abs: max(var(--offset), -1 * var(--offset));
+  --centred: max(0, min(1 - var(--abs), 1));
+}
+
+.slide__inner {
+  flex: 1;
+  min-width: 0;
+  height: var(--card-h, 320px);
+  border-radius: var(--card-radius);
+  background: #fff;
+  display: flex;
+  align-items: stretch;
+  /* the design overflows the card (splash chips poke above the top
+     edge) — the card itself still rounds/paints normally */
+  overflow: visible;
+
+  /* scroll-driven card scale (0 = off) — pure function of --centred */
+  transform: scale(calc(1 - var(--scale-amt, 0) * (1 - var(--centred))));
+
+  /* Figma card shadows */
+  box-shadow:
+    0 0 2px rgba(0, 0, 0, 0.03),
+    0 1px 4px rgba(0, 0, 0, 0.03);
+}
+
+/* ---------- scroll-driven text treatment (parallax, fixed) ----------
+   Any element with .fx-text gets Apple's mechanism: opacity follows
+   1 − |offset| × fade-rate; x = offset × 2.6 × travel. */
+.carousel .fx-text {
+  opacity: calc(1 - var(--abs) * var(--fade-rate, 3.2));
+  transform: translateX(calc((var(--offset) + var(--offset) * 1.6) * var(--caption-offset, 120px)));
+  transition: none;
+}
+
+/* ============================================================
+   Controls row: progress pill + play/pause OR prev/next chips
+   (Figma "controls" 229:6447)
+   ============================================================ */
+.carousel__pagination {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  gap: 8px;                      /* pill → chip (Figma) */
+  margin-top: var(--unit-gap, 20px);   /* card → controls (Figma) */
+  padding: 0 16px;
+}
+/* dots live in a white pill (r100, 24 tall → pad 9/12) */
+.carousel__progress {
+  display: flex;
+  align-items: center;
+  gap: 7px;                      /* Figma spec; hit targets preserved
+                                    via taller ::before extensions */
+  background: #fff;
+  border-radius: 100px;
+  padding: 9px 12px;
+  box-shadow:
+    0 0 2px rgba(0, 0, 0, 0.03),
+    0 1px 4px rgba(0, 0, 0, 0.05);
+}
+
+/* white circular chips: play/pause + prev/next steppers */
+.carousel__playpause,
+.carousel__step {
+  flex: none;
+  position: relative;
+  width: 24px; height: 24px;
+  border: none;
+  background: #fff;
+  box-shadow:
+    0 0 2px rgba(0, 0, 0, 0.03),
+    0 1px 4px rgba(0, 0, 0, 0.05);
+  border-radius: 50%;
+  color: #999999;               /* glyphs (darkened from Figma #acacac) */
+  cursor: pointer;
+  transition: color .15s ease, transform .1s ease;
+}
+/* extend the 24px controls to a 40px hit area */
+.carousel__playpause::before,
+.carousel__step::before {
+  content: "";
+  position: absolute;
+  inset: -8px;
+  border-radius: 50%;
+}
+.carousel__playpause:hover,
+.carousel__step:hover:not(:disabled) { color: #7d7d82; }
+.carousel__playpause:active,
+.carousel__step:active:not(:disabled) { transform: scale(0.96); }
+.carousel__step:disabled { color: #d9d9d9; cursor: default; }
+.carousel__step svg {
+  position: absolute;
+  inset: 0;
+  margin: auto;
+  width: 24px; height: 24px;
+}
+/* play/pause icons cross-fade (opacity/scale/blur); glyphs are
+   drawn on the same 24×24 grid as the chip */
+.carousel__playpause svg {
+  position: absolute;
+  inset: 0;
+  margin: auto;
+  width: 24px; height: 24px;
+  fill: currentColor;
+  opacity: 0;
+  scale: 0.25;
+  filter: blur(4px);
+  transition: opacity .3s cubic-bezier(0.2, 0, 0, 1),
+              scale .3s cubic-bezier(0.2, 0, 0, 1),
+              filter .3s cubic-bezier(0.2, 0, 0, 1);
+}
+.carousel__playpause .icon-replay { fill: none; }
+.carousel:not(.is-paused):not(.is-ended) .carousel__playpause .icon-pause,
+.carousel.is-paused:not(.is-ended) .carousel__playpause .icon-play,
+.carousel.is-ended .carousel__playpause .icon-replay {
+  opacity: 1;
+  scale: 1;
+  filter: blur(0);
+}
+
+/* ---------- autoplay OFF: classic dots + prev/next steppers ----------
+   Dots stop expanding (no timer pill), current dot is a solid dark
+   dot; the play/pause chip gives way to prev/next. */
+.carousel__step { display: none; }
+.carousel.no-autoplay .carousel__playpause { display: none; }
+.carousel.no-autoplay .carousel__step { display: block; }
+.carousel.no-autoplay .progress-seg { width: var(--dot-size); }
+.carousel.no-autoplay .progress-seg__fill { display: none; }
+.carousel.no-autoplay .progress-seg.is-current { background: var(--dot-active-fill); }
+
+/* ---------- attribution footer (Figma: 10/11 Gramatika) ---------- */
+.carousel__footer {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  margin-top: 5px;                /* controls → footer (Figma) */
+  padding: 0 10px;                /* footer inset from unit edge (Figma) */
+  font-size: 10px;
+  line-height: 1.1;
+  color: #737373;                 /* "Thanks", "Terms · Privacy" */
+}
+/* mixed attribution colours (Figma): brand word #737373, framing
+   words 24% black */
+.thanks-proto .carousel .carousel__attribution { color: #737373; }
+.thanks-proto .carousel .carousel__attribution .soft { color: rgba(0, 0, 0, 0.24); }
+.thanks-proto.theme-dark .carousel__footer { color: var(--ink-soft); }
+.thanks-proto.theme-dark .carousel__attribution { color: var(--ink-soft); }
+.thanks-proto.theme-dark .carousel__attribution .soft { color: rgba(255, 255, 255, 0.35); }
+
+/* ---------- edge fades over the peeking cards ---------- */
+.carousel:not(.edge-fade) .carousel__edgefade { display: none; }
+.carousel__edgefade {
+  position: absolute;
+  top: var(--unit-pad-top, 32px);
+  left: 0;
+  right: 0;
+  height: var(--fade-h, var(--card-h, 320px));
+  pointer-events: none;
+  z-index: 1;
+}
+.carousel__edgefade::before,
+.carousel__edgefade::after {
+  content: "";
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  width: 24px;
+}
+.carousel__edgefade::before {
+  left: 0;
+  background: linear-gradient(to right, var(--unit-bg-solid, #f5f5f5), transparent);
+}
+.carousel__edgefade::after {
+  right: 0;
+  background: linear-gradient(to left, var(--unit-bg-solid, #f5f5f5), transparent);
+}
+
+/* ---------- progress dots (Apple dotnav mechanics) ---------- */
+.progress-seg {
+  position: relative;
+  /* pill hands off between dots CONTINUOUSLY with the scroll —
+     width is a pure function of --autoplay-progress */
+  --item-progress: calc(var(--item-index, 0) - var(--autoplay-progress, 0));
+  --abs-item-progress: max(var(--item-progress), -1 * var(--item-progress));
+  --item-expand: max(0, min(1 - var(--abs-item-progress), 1));
+  width: calc(var(--dot-size) + (var(--dot-active-width) - var(--dot-size)) * var(--item-expand));
+  height: var(--dot-size);
+  border-radius: 999px;
+  background: var(--dot-bg);
+  border: none;
+  padding: 0;
+  cursor: pointer;
+  flex: none;
+  transition: background-color .25s linear, scale .15s ease;
+}
+/* extend the tiny dot to a taller hit area */
+.progress-seg::before {
+  content: "";
+  position: absolute;
+  top: -21px; bottom: -21px;
+  left: -3px; right: -3px;
+}
+.progress-seg:hover:not(.is-current) { background: var(--dot-bg-hover); }
+.progress-seg:active { scale: 0.96; }
+.progress-seg.is-current { cursor: default; }
+.progress-seg__track {
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+  overflow: hidden;
+}
+.progress-seg__fill {
+  position: absolute;
+  inset: 0;
+  transform-origin: left center;
+  transform: scaleX(var(--fill, 0));
+  background: var(--dot-active-fill);
+  border-radius: inherit;
+  transition: opacity .18s linear;
+}
+.progress-seg:not(.is-current) .progress-seg__fill { opacity: 0; }
+.carousel.is-scrubbing .progress-seg__fill { opacity: 0; }
+
+/* ============================================================
+   CARD: Collage (Figma "Direction 2", 232:6458)
+   One desktop comp, 508×264: content left 55.5%, collage art right.
+   Type + spacing scale PROPORTIONALLY with the card via cqw units
+   (1cqw = card-width/100; the comp's 508px width → 1px ≈ 0.197cqw).
+   Art PNGs are exported with a 40px transparent margin.
+   ============================================================ */
+.collage-card__body {
+  flex: 0 0 55.55%;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  gap: 3.94cqw;                       /* 20px @508 */
+  padding: 6.3cqw 3.15cqw 6.3cqw 6.3cqw;   /* 32 / 16 / 32 / 32 */
+}
+.collage-card--intro .collage-card__body { padding-right: 6.3cqw; }
+.collage-card__text {
+  display: flex;
+  flex-direction: column;
+  gap: 1.57cqw;                       /* 8px @508 */
+  /* overflow safety: long copy fades out instead of clipping hard */
+  flex: 0 1 auto;
+  min-height: 0;
+  overflow: hidden;
+  padding-bottom: 14px;
+  margin-bottom: -14px;
+  mask-image: linear-gradient(to bottom, #000 calc(100% - 14px), transparent);
+  -webkit-mask-image: linear-gradient(to bottom, #000 calc(100% - 14px), transparent);
+}
+.thanks-proto .carousel .collage-card__title {
+  font-family: inherit;
+  font-size: 3.54cqw;                 /* 18px @508 — Gramatika Black */
+  line-height: 3.94cqw;               /* 20px */
+  font-weight: 700;                   /* Black has no webfont; 700 renders */
+  letter-spacing: 0;
+  color: #1d1d1d;
+  text-wrap: balance;
+}
+.thanks-proto .carousel .collage-card__desc {
+  font-size: 2.36cqw;                 /* 12px @508 */
+  line-height: 3.15cqw;               /* 16px */
+  font-weight: 400;
+  color: #525252;
+  text-wrap: pretty;
+}
+/* terms link appended to the description — #737373 vs the #525252
+   copy (Figma); underline on hover signals the link */
+.thanks-proto .carousel .collage-card__terms {
+  color: #737373;
+  text-decoration: none;
+  white-space: nowrap;
+}
+.thanks-proto .carousel .collage-card__terms:hover { text-decoration: underline; }
+.thanks-proto .carousel .collage-card__cta {
+  align-self: flex-start;
+  flex: none;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  font: inherit;
+  font-size: 2.56cqw;                 /* 13px @508 */
+  line-height: 3.54cqw;               /* 18px */
+  font-weight: 500;
+  height: 6.3cqw;                     /* 32px */
+  padding: 0 3.94cqw;                 /* 0 / 20 — no bottom optical pad */
+  border: none;
+  border-radius: var(--cta-radius, 96px);
+  background: var(--accent, #006cc1); /* splash: publisher accent;
+                                         offers set advertiser colours inline */
+  color: #fff;
+  cursor: pointer;
+  transition: filter .15s ease, scale .15s ease;
+}
+.thanks-proto .carousel .collage-card__cta:hover { filter: brightness(1.08); }
+.thanks-proto .carousel .collage-card__cta:active { scale: 0.96; }
+/* the splash CTA is publisher-accent coloured — its label uses the
+   luminance-derived ink (dark on light accents) */
+.thanks-proto .carousel .collage-card--intro .collage-card__cta {
+  color: var(--accent-ink, #fff);
+}
+/* Button colour override: ALL CTAs follow the publisher brand.
+   !important beats the per-offer inline advertiser colour. */
+.thanks-proto .carousel.btn-override .collage-card__cta {
+  background: var(--cta-color, #0077c8) !important;
+  color: var(--cta-ink, #fff) !important;
+}
+
+/* — splash headline: 28/30 with the reward-count ticker chip — */
+.thanks-proto .carousel .collage-intro__title {
+  font-family: inherit;
+  font-size: 5.51cqw;                 /* 28px @508 */
+  line-height: 5.91cqw;               /* 30px line box */
+  font-weight: 700;
+  letter-spacing: 0;
+  color: #1d1d1d;
+}
+/* ticker: 26×28 white chip, digits roll 0 → offer count on activate */
+.collage-ticker {
+  display: inline-block;
+  vertical-align: bottom;
+  width: 5.12cqw;                     /* 26px @508 */
+  height: 5.51cqw;                    /* 28px */
+  border-radius: 0.79cqw;             /* 4px */
+  background: #fff;
+  box-shadow:
+    0 0 0 0.5px rgba(0, 0, 0, 0.05),
+    0 0 2px rgba(0, 0, 0, 0.03),
+    0 1px 4px rgba(0, 0, 0, 0.03);
+  overflow: hidden;
+  position: relative;
+}
+/* soft fade at the chip's top/bottom (the design's gradient overlay) */
+.collage-ticker::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  background: linear-gradient(#fff, transparent 30%, transparent 70%, #fff);
+  opacity: 0.8;
+}
+.collage-ticker__reel {
+  display: block;
+  transform: translateY(0);
+  transition: transform 1s var(--ease-apple) 0.4s;
+}
+.collage-ticker__digit {
+  display: block;
+  height: 5.51cqw;
+  line-height: 5.51cqw;
+  text-align: center;
+  font-size: 5.51cqw;
+  font-weight: 700;
+  color: #1d1d1d;
+}
+.carousel .slide.is-active .collage-ticker__reel {
+  transform: translateY(calc((1 - var(--tick-n, 1)) * 5.51cqw));
+}
+
+/* — card art (right column on desktop, top band on mobile) —
+   Fan-of-cards offers render each element (back / mid / front /
+   logo) as its OWN positioned img — exported unrotated with a 40px
+   margin; position/size/rotation come from inline styles generated
+   off the Figma geometry (carousel.js), so the next stage can
+   animate every element independently. The .fan container rides the
+   text parallax (same function of --offset); element transforms
+   stay free for rotation/animation. */
+.collage-card__media {
+  flex: 1;
+  position: relative;
+  min-width: 0;
+}
+.fan {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  transform: translateX(calc((var(--offset, 0) + var(--offset, 0) * 1.6) * var(--caption-offset, 120px)));
+}
+.fan__img {
+  position: absolute;
+  height: auto;
+  user-select: none;
+}
+.fan--m { display: none; }
+/* desktop line-break variant for the splash headline */
+.collage-intro__title .br-m { display: none; }
+
+/* — mobile card (<440px): Figma 302×300 comp — art band on top,
+     centred text, full-width CTA in a bottom strip — */
+@container (max-width: 439px) {
+  .slide__inner.collage-card {
+    flex-direction: column;
+    /* the comp is a fixed 300-tall grid; --card-h sets the floor and
+       long copy can still grow the card */
+    height: auto;
+    min-height: var(--card-h, 300px);
+  }
+  /* body's children join the card's column directly: media band,
+     then text, then the CTA strip */
+  .collage-card__body { display: contents; }
+  .collage-card__media {
+    order: -1;
+    flex: 0 0 104px;
+    margin: 40px 24px 0;               /* art band sits 40px down */
+    position: relative;
+    min-width: 0;
+    overflow: visible;                 /* splash art overflows the card top */
+  }
+  .fan--d { display: none; }
+  .fan--m { display: block; }
+  /* text starts 13px INTO the art band's box (Figma: band bottom 144,
+     text top 131 — the art floats high, so no visual overlap) */
+  .collage-card__text {
+    order: 0;
+    margin: -13px 24px 0;
+    gap: 8px;
+    text-align: center;
+  }
+  .collage-card--intro .collage-card__text { margin-top: 16px; }
+  .thanks-proto .carousel .collage-card__title { font-size: 19px; line-height: 22px; text-align: center; }
+  .thanks-proto .carousel .collage-card__desc { font-size: 12px; line-height: 16px; text-align: center; }
+  /* CTA strip: full width, pinned to the card bottom */
+  .thanks-proto .carousel .collage-card__cta {
+    order: 1;
+    align-self: stretch;
+    margin: auto 16px 16px;
+    font-size: 13px;
+    line-height: 18px;
+    height: 32px;
+    padding: 0 24px;
+  }
+  /* splash headline: 24/22, ticker rolls in a 26×28 chip; the break
+     moves — "You've unlocked [n] / rewards" */
+  .thanks-proto .carousel .collage-intro__title { font-size: 24px; line-height: 30px; text-align: center; }
+  .collage-intro__title .br-d { display: none; }
+  .collage-intro__title .br-m { display: inline; }
+  .collage-ticker { width: 26px; height: 28px; border-radius: 4px; vertical-align: middle; }
+  .collage-ticker__digit { height: 22px; line-height: 22px; font-size: 24px; }
+  .carousel .slide.is-active .collage-ticker__reel {
+    transform: translateY(calc((1 - var(--tick-n, 1)) * 22px));
+  }
+}
+
+/* ============================================================
+   Content defense — hosts style bare elements. Specificity
+   (0,2,1) beats host ".container element" patterns, and our
+   stylesheet loads after theirs so ties also go to us.
+   ============================================================ */
+.thanks-proto .carousel :is(h1, h2, h3, h4, h5, h6, p, ul, li) {
+  margin: 0;
+  padding: 0;
+  font-family: inherit;
+  letter-spacing: normal;
+  text-transform: none;
+  text-shadow: none;
+  border: none;
+}
+.thanks-proto .carousel :is(button, a, span) {
+  font-family: inherit;
+  letter-spacing: normal;
+  text-transform: none;
+  text-shadow: none;
+  background-image: none;
+}
+/* hosts cap images ("img { max-width: 100% }" — Humanitix) which
+   distorts art sized by height + aspect-ratio: un-cap inside the
+   embed; the card sets its own explicit dimensions */
+.thanks-proto .carousel img {
+  max-width: none;
+  max-height: none;
+  border: none;
+  background: none;
+}
+.thanks-proto .carousel .collage-card__desc,
+.thanks-proto .carousel__footer { font-weight: 400; }
+
+/* ============================================================
+   Settings cog + panel
+   ============================================================ */
+.settings-cog {
+  position: fixed;
+  right: 20px; bottom: 20px;
+  width: 46px; height: 46px;
+  border-radius: 50%;
+  border: 1px solid var(--line);
+  background: #fff;
+  color: var(--ink);
+  display: grid;
+  place-items: center;
+  cursor: pointer;
+  box-shadow: 0 4px 16px rgba(0,0,0,0.12);
+  z-index: 2147483000;
+  transition: transform .2s var(--ease-apple), background .15s ease;
+}
+.settings-cog:hover { background: #f5f5f7; }
+.settings-cog:active { transform: scale(0.96); }
+
+.settings-panel {
+  position: fixed;
+  right: 20px; bottom: 78px;
+  width: 384px;
+  max-width: calc(100vw - 40px);
+  max-height: calc(100vh - 120px);
+  overflow-y: auto;
+  background: #fff;
+  border-radius: 16px;
+  box-shadow:
+    0 0 0 1px rgba(0, 0, 0, 0.06),
+    0 2px 8px rgba(0, 0, 0, 0.06),
+    0 12px 40px rgba(0, 0, 0, 0.14);
+  z-index: 2147483001;
+  transform: translateY(8px) scale(0.98);
+  opacity: 0;
+  pointer-events: none;
+  transition: transform .22s var(--ease-apple), opacity .22s var(--ease-apple);
+}
+.settings-panel.is-open {
+  transform: translateY(0) scale(1);
+  opacity: 1;
+  pointer-events: auto;
+}
+.settings-panel__head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 16px 18px;
+  border-bottom: 1px solid var(--line);
+  position: sticky; top: 0; background: #fff;
+}
+.settings-panel__head h3 { font-size: 15px; font-weight: 700; }
+.settings-panel__close {
+  border: none; background: none; font-size: 22px; line-height: 1;
+  color: var(--ink-soft); cursor: pointer; padding: 0 4px;
+  position: relative;
+}
+.settings-panel__close::before {
+  content: "";
+  position: absolute;
+  inset: -9px;
+}
+.settings-panel__body { padding: 8px 18px 18px; }
+
+/* ---------- settings tabs ---------- */
+.settings-tabs {
+  display: flex;
+  gap: 4px;
+  padding: 10px 14px 0;
+  border-bottom: 1px solid var(--line);
+  position: sticky; top: 53px;
+  background: #fff;
+  z-index: 1;
+}
+.settings-tab {
+  border: none;
+  background: none;
+  font: inherit;
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--ink-soft);
+  padding: 8px 10px;
+  cursor: pointer;
+  border-radius: 8px 8px 0 0;
+  border-bottom: 2px solid transparent;
+  margin-bottom: -1px;
+}
+.settings-tab:hover { color: var(--ink); }
+.settings-tab.is-active {
+  color: var(--ink);
+  border-bottom-color: var(--ink);
+}
+
+.setting {
+  padding: 12px 0;
+  border-bottom: 1px solid #f0f0f0;
+}
+.setting:last-child { border-bottom: none; }
+.setting__row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+.setting__label { font-size: 13.5px; font-weight: 600; }
+.setting__val { font-size: 12px; color: var(--ink-soft); font-variant-numeric: tabular-nums; }
+.setting input[type="range"] { width: 100%; margin-top: 8px; accent-color: var(--ink); }
+.setting select {
+  font: inherit; font-size: 13px; padding: 4px 8px;
+  border: 1px solid var(--line); border-radius: 8px; background: #fff;
+}
+
+/* ============================================================
+   Defend the settings panel against host-page CSS.
+   ============================================================ */
+.thanks-proto .settings-panel,
+.thanks-proto .settings-panel * {
+  font-family: "Gramatika", -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+  letter-spacing: normal;
+  text-transform: none;
+  line-height: 1.4;
+  text-align: left;
+  text-shadow: none;
+  float: none;
+}
+.thanks-proto .settings-panel h3 {
+  font-size: 15px; font-weight: 700; color: var(--ink); margin: 0;
+}
+.thanks-proto .settings-panel select {
+  font-size: 13px; font-weight: 400; color: #1d1d1f;
+  background-color: #fff; background-image: none;
+  border: 1px solid #e5e5e5; border-radius: 8px;
+  padding: 4px 8px; margin: 0;
+  height: auto; width: auto; max-width: 190px;
+  appearance: auto; box-shadow: none; cursor: pointer;
+}
+.thanks-proto .settings-panel input[type="range"] {
+  width: 100%; height: auto; padding: 0;
+  background: transparent; border: none; box-shadow: none;
+  appearance: auto; accent-color: #1d1d1f;
+}
+.thanks-proto .settings-panel input[type="text"],
+.thanks-proto .settings-panel textarea {
+  background-color: #fff; color: #1d1d1f;
+  box-shadow: none; height: auto; margin: 0;
+}
+.thanks-proto .settings-panel button {
+  background-image: none; box-shadow: none; min-width: 0; min-height: 0;
+}
+.thanks-proto .settings-panel .settings-panel__close { line-height: 1; font-size: 22px; }
+.thanks-proto .settings-panel .settings-subhead { font-size: 11px; letter-spacing: .06em; text-transform: uppercase; }
+.thanks-proto .settings-panel .preset-json { font: 11px/1.5 ui-monospace, SFMono-Regular, Menlo, monospace; }
+.thanks-proto .settings-panel .tc-btn--primary { background-color: var(--ink); color: #fff; }
+
+/* ---------- presets ---------- */
+.preset-save {
+  display: flex;
+  flex-wrap: wrap;               /* share row holds four buttons */
+  gap: 8px;
+  margin: 14px 0 10px;
+}
+.preset-save input[type="text"] {
+  flex: 1;
+  min-width: 0;
+  font: inherit;
+  font-size: 13px;
+  padding: 7px 10px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+}
+.tc-btn {
+  font: inherit;
+  font-size: 12.5px;
+  font-weight: 600;
+  padding: 7px 12px;
+  border-radius: 8px;
+  border: 1px solid var(--line);
+  background: #fff;
+  color: var(--ink);
+  transition: background-color .15s ease, scale .15s ease;
+  cursor: pointer;
+  white-space: nowrap;
+}
+.tc-btn:hover { background: #f5f5f7; }
+.tc-btn:active { scale: 0.96; }
+.tc-btn--primary { background: var(--ink); color: #fff; border-color: var(--ink); }
+.tc-btn--primary:hover { background: #333; }
+.preset-item {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 9px 0;
+  border-bottom: 1px solid #f0f0f0;
+}
+.preset-item__name {
+  flex: 1;
+  font-size: 13.5px;
+  font-weight: 600;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.preset-json {
+  width: 100%;
+  height: 84px;
+  font: 11px/1.5 ui-monospace, SFMono-Regular, Menlo, monospace;
+  padding: 8px 10px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  resize: vertical;
+  color: var(--ink);
+}
+.preset-note {
+  font-size: 11.5px;
+  color: var(--ink-soft);
+  margin-top: 8px;
+  line-height: 1.5;
+}
+.settings-subhead {
+  font-size: 11px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: .06em;
+  color: var(--ink-soft);
+  margin: 18px 0 6px;
+}
+
+/* iOS-style switch */
+.switch { position: relative; width: 42px; height: 25px; flex: none; }
+.switch input { position: absolute; opacity: 0; width: 100%; height: 100%; margin: 0; cursor: pointer; }
+.switch__track {
+  position: absolute; inset: 0; border-radius: 999px; background: #e5e5ea;
+  transition: background .2s ease;
+}
+.switch__track::after {
+  content: ""; position: absolute; top: 2px; left: 2px;
+  width: 21px; height: 21px; border-radius: 50%; background: #fff;
+  box-shadow: 0 1px 3px rgba(0,0,0,0.25);
+  transition: transform .2s var(--ease-apple);
+}
+.switch input:checked + .switch__track { background: #34c759; }
+.switch input:checked + .switch__track::after { transform: translateX(17px); }
+
+/* ============================================================
+   Reduced motion
+   ============================================================ */
+@media (prefers-reduced-motion: reduce) {
+  .slide__inner, .progress-seg, .progress-seg__fill, .settings-panel,
+  .carousel__playpause svg, .collage-ticker__reel { transition: none; }
+}
