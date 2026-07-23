@@ -542,20 +542,14 @@
   position: relative;
   min-width: 0;
 }
-/* registered so the hover lean can transition INSIDE the composed
-   transform without dragging the scroll parallax along */
-@property --fan-lean { syntax: "<angle>"; initial-value: 0deg; inherits: false; }
-
 .fan {
   position: absolute;
   inset: 0;
   pointer-events: none;
-  /* the art rides the text treatment: same parallax AND fade; the
-     hover lean composes into the same transform via its own var */
+  /* the art rides the text treatment: same parallax AND fade —
+     scroll drives ALL positional motion (no entrance slide-in) */
   opacity: calc(1 - var(--abs) * var(--fade-rate, 3.2));
-  transform: translateX(calc((var(--offset, 0) + var(--offset, 0) * 1.6) * var(--caption-offset, 120px)))
-             rotate(var(--fan-lean, 0deg));
-  transition: --fan-lean .4s cubic-bezier(.2, 0, 0, 1);
+  transform: translateX(calc((var(--offset, 0) + var(--offset, 0) * 1.6) * var(--caption-offset, 120px)));
 }
 .fan__cards {
   position: absolute;
@@ -618,52 +612,55 @@
     0.33cqw 3.31cqw 3.31cqw rgba(0, 0, 0, 0.09),
     0.66cqw 7.62cqw 4.64cqw rgba(0, 0, 0, 0.05);
 }
-/* logo chip: frosted disc (Figma BLURRED CONTAINER) + ringed mark */
+/* logo chip: frosted disc (Figma BLURRED CONTAINER) + ringed mark.
+   overflow + isolation force the backdrop blur to clip to the circle
+   — without them Chromium paints the blur's square bounding box as a
+   pale 4-point halo while content moves underneath. On hover it
+   spins about its own centre; its position never changes. */
 .fan-chip {
   position: absolute;
   inset: 0;
   border-radius: 50%;
+  overflow: hidden;
+  isolation: isolate;
   background: rgba(255, 255, 255, 0.1);
   backdrop-filter: blur(6px);
   -webkit-backdrop-filter: blur(6px);
   padding: 5.5%;
+  transition: transform .4s cubic-bezier(.2, 0, 0, 1);
 }
 .fan-chip__logo {
   display: block;
   width: 100%;
   height: 100%;
   border-radius: 50%;
-  box-shadow: 0 0 0 0.59cqw rgba(255, 255, 255, 0.2);
 }
-.fan--m .fan-chip__logo { box-shadow: 0 0 0 0.99cqw rgba(255, 255, 255, 0.2); }
 
-/* — entrance: art rises in while the cards arrive OVER-fanned and
-     settle to rest. fill: backwards is LOAD-BEARING — it holds the
-     pose through the delay then RELEASES the transform so the hover
-     fan (a transition) can take over. Re-fires on every activation
-     because .is-active is removed on deactivate. — */
-.slide.is-active .fan__cards {
-  animation: tc-rise .45s cubic-bezier(.2, 0, 0, 1) .26s backwards;
-}
-.slide.is-active .fan-card {
+/* — entrance (fan offers, desktop): the cards arrive OVER-fanned
+     and settle to rest — rotation only, so nothing flashes; all
+     positional motion stays scroll-driven. fill: backwards is
+     LOAD-BEARING — it holds the pose through the delay then
+     RELEASES the transform so the hover fan (a transition) can take
+     over. Re-fires on every activation because .is-active is
+     removed on deactivate. Mobile gets its own treatment later. — */
+.slide.is-active .fan--anim.fan--d .fan-card {
   animation: tc-unfan .5s cubic-bezier(.2, 0, 0, 1) .3s backwards;
-}
-@keyframes tc-rise {
-  from { opacity: 0; transform: translateY(16px); }
-  to   { opacity: 1; transform: none; }
 }
 @keyframes tc-unfan {
   from { transform: rotate(var(--fan-from, 0deg)); }
   to   { transform: none; }
 }
 
-/* — hover (pointer devices): the fan spreads from each card's
-     bottom-left pivot and the whole frame leans right — */
+/* — hover (pointer devices, fan offers only): the fan spreads from
+     each card's bottom-left pivot; the logo chip stays put and
+     twists about its own centre — */
 @media (hover: hover) {
-  .collage-card__media:hover .fan--d .fan-card {
+  .collage-card__media:hover .fan--anim.fan--d .fan-card {
     transform: rotate(var(--fan-hover, 0deg)) scale(1.05);
   }
-  .collage-card__media:hover .fan--d { --fan-lean: 1.5deg; }
+  .collage-card__media:hover .fan--anim.fan--d .fan-chip {
+    transform: rotate(10deg);
+  }
 }
 .fan--m { display: none; }
 /* desktop line-break variant for the splash headline */
@@ -689,7 +686,7 @@
        keep the comp's aspect (254×104) as the card scales — a fixed
        height lets wide cards spill art into the text */
     aspect-ratio: 254 / 104;
-    margin: 40px 24px 0;               /* art band sits 40px down */
+    margin: 13.25cqw 7.95cqw 0;        /* 40px / 24px @302 — scales with card */
     position: relative;
     min-width: 0;
     overflow: visible;                 /* splash art overflows the card top */
@@ -699,34 +696,37 @@
   /* text starts 13px INTO the art band's box at the 302 comp (band
      bottom 144, text top 131) — width-relative so it scales with the
      card; the art floats high, so no visual overlap */
+  /* type scales WITH the card (cqw, comp = 302px wide) — fixed-px
+     type under width-scaling art is what caused the text/art overlap
+     on wider mobile cards */
   .collage-card__text {
     order: 0;
-    margin: -4.3% 24px 0;
-    gap: 8px;
+    margin: -4.3% 7.95cqw 0;            /* 24px @302 */
+    gap: 2.65cqw;                        /* 8px */
     text-align: center;
   }
   .collage-card--intro .collage-card__text { margin-top: 5.3%; }
-  .thanks-proto .carousel .collage-card__title { font-size: 19px; line-height: 22px; text-align: center; }
-  .thanks-proto .carousel .collage-card__desc { font-size: 12px; line-height: 16px; text-align: center; }
+  .thanks-proto .carousel .collage-card__title { font-size: 6.29cqw; line-height: 7.28cqw; text-align: center; }   /* 19/22 */
+  .thanks-proto .carousel .collage-card__desc { font-size: 3.97cqw; line-height: 5.3cqw; text-align: center; }     /* 12/16 */
   /* CTA strip: full width, pinned to the card bottom */
   .thanks-proto .carousel .collage-card__cta {
     order: 1;
     align-self: stretch;
-    margin: auto 16px 16px;
-    font-size: 13px;
-    line-height: 18px;
-    height: 32px;
-    padding: 0 24px;
+    margin: auto 5.3cqw 5.3cqw;          /* 16px */
+    font-size: 4.3cqw;                   /* 13px */
+    line-height: 5.96cqw;                /* 18px */
+    height: 10.6cqw;                     /* 32px */
+    padding: 0 7.95cqw;                  /* 24px */
   }
-  /* splash headline: 24/22, ticker rolls in a 26×28 chip; the break
+  /* splash headline: 24/30, ticker rolls in a 26×28 chip; the break
      moves — "You've unlocked [n] / rewards" */
-  .thanks-proto .carousel .collage-intro__title { font-size: 24px; line-height: 30px; text-align: center; }
+  .thanks-proto .carousel .collage-intro__title { font-size: 7.95cqw; line-height: 9.93cqw; text-align: center; }
   .collage-intro__title .br-d { display: none; }
   .collage-intro__title .br-m { display: inline; }
-  .collage-ticker { width: 26px; height: 28px; border-radius: 4px; vertical-align: middle; }
-  .collage-ticker__digit { height: 22px; line-height: 22px; font-size: 24px; }
+  .collage-ticker { width: 8.61cqw; height: 9.27cqw; border-radius: 1.32cqw; vertical-align: middle; }
+  .collage-ticker__digit { height: 7.28cqw; line-height: 7.28cqw; font-size: 7.95cqw; }
   .carousel .slide.is-active .collage-ticker__reel {
-    transform: translateY(calc((1 - var(--tick-n, 1)) * 22px));
+    transform: translateY(calc((1 - var(--tick-n, 1)) * 7.28cqw));
   }
 }
 
@@ -1013,8 +1013,8 @@
    ============================================================ */
 @media (prefers-reduced-motion: reduce) {
   .slide__inner, .progress-seg, .progress-seg__fill, .settings-panel,
-  .carousel__playpause svg, .collage-ticker__reel, .fan, .fan-card { transition: none; }
-  .fan__cards, .fan-card { animation: none !important; }
-  .collage-card__media:hover .fan--d .fan-card { transform: none; }
-  .collage-card__media:hover .fan--d { --fan-lean: 0deg; }
+  .carousel__playpause svg, .collage-ticker__reel, .fan-card, .fan-chip { transition: none; }
+  .fan-card { animation: none !important; }
+  .collage-card__media:hover .fan--anim.fan--d .fan-card,
+  .collage-card__media:hover .fan--anim.fan--d .fan-chip { transform: none; }
 }

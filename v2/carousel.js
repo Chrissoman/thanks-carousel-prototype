@@ -155,9 +155,9 @@
      (deltas RELATIVE to the resting pose, back → front). */
   const FAN_Z = { back: 1, mid: 2, front: 3, logo: 4 };
   const FAN_ANIM = {
-    back:  "--fan-from:-8deg;--fan-hover:-4deg;",
-    mid:   "--fan-from:-3.5deg;--fan-hover:-1.5deg;",
-    front: "--fan-from:2deg;--fan-hover:1deg;",
+    back:  "--fan-from:-8deg;--fan-hover:-3deg;",
+    mid:   "--fan-from:-3.5deg;--fan-hover:-1deg;",
+    front: "--fan-from:2deg;--fan-hover:0.75deg;",
   };
   function fanElStyle(g, area, part) {
     const pct = (v, base) => +(v / base * 100).toFixed(2) + "%";
@@ -171,9 +171,12 @@
       <div class="cw" style="${fanElStyle(spec.mid, area, "mid")}"><div class="fan-card fan-card--mid" style="${FAN_ANIM.mid}background:${o.fanMid}"></div></div>
       <div class="cw" style="${fanElStyle(spec.front, area, "front")}"><div class="fan-card fan-card--front" style="${FAN_ANIM.front}background-image:url(assets/photo-${o.key}${suffix}.jpg)"></div></div>
       <div class="cw" style="${fanElStyle(spec.logo, area, "logo")}"><div class="fan-chip"><img class="fan-chip__logo" src="assets/logomark-${o.key}.png" alt="" draggable="false"></div></div>`;
+    // fan--anim scopes the entrance/hover animation system to the
+    // card-fan offer type; composites (splash/subscribe) get their
+    // own treatments later
     return `
-      <div class="fan fan--d"><div class="fan__cards">${tier(FAN_D, AREA_D, "")}</div></div>
-      <div class="fan fan--m"><div class="fan__cards">${tier(FAN_M, AREA_M, "-m")}</div></div>`;
+      <div class="fan fan--anim fan--d"><div class="fan__cards">${tier(FAN_D, AREA_D, "")}</div></div>
+      <div class="fan fan--anim fan--m"><div class="fan__cards">${tier(FAN_M, AREA_M, "-m")}</div></div>`;
   }
   function compositeMarkup(name, geomM) {
     return `
