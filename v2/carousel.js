@@ -34,6 +34,8 @@
     theme: "light",                 // light | dark (dark design TBD)
     unitBgAuto: true,
     unitBgColor: "#f5f5f5",
+    unitBorder: false,              // drawn as an INSET shadow (no layout shift)
+    unitBorderColor: "#e5e5e5",
     unitRadius: 4,
     // ---- publisher-scoped: Layout ----
     unitMargin: 0,
@@ -53,8 +55,8 @@
   const PUBLISHER_KEYS = [
     "autoplay", "splashIntro", "buttonColorMode", "buttonColor",
     "buttonRadiusMode", "ctaRadius", "cardRadius", "theme",
-    "unitBgAuto", "unitBgColor", "unitRadius", "unitMargin",
-    "edgeFade", "accent",
+    "unitBgAuto", "unitBgColor", "unitBorder", "unitBorderColor",
+    "unitRadius", "unitMargin", "edgeFade", "accent",
   ];
   const GLOBAL_KEYS = Object.keys(DEFAULTS).filter((k) => !PUBLISHER_KEYS.includes(k));
 
@@ -694,6 +696,9 @@
       solid = config.unitBgColor;
     }
     section.style.setProperty("--unit-bg-solid", solid);
+    // unit border: an INSET shadow, so toggling never shifts layout
+    section.style.setProperty("--unit-border-shadow",
+      config.unitBorder ? `inset 0 0 0 1px ${config.unitBorderColor}` : "none");
     const ctaRadius = config.buttonRadiusMode === "default" ? 96 : config.ctaRadius;
     section.style.setProperty("--cta-radius", ctaRadius + "px");
     section.style.setProperty("--fade-rate", FADE_RATE);
@@ -747,6 +752,9 @@
     { tab: "Publisher", section: "Branding", key: "unitBgAuto", label: "Unit background: auto", type: "switch" },
     { tab: "Publisher", section: "Branding", key: "unitBgColor", label: "Unit background colour", type: "color",
       showIf: (c) => !c.unitBgAuto },
+    { tab: "Publisher", section: "Branding", key: "unitBorder", label: "Unit border", type: "switch" },
+    { tab: "Publisher", section: "Branding", key: "unitBorderColor", label: "Unit border colour", type: "color",
+      showIf: (c) => c.unitBorder },
     { tab: "Publisher", section: "Branding", key: "unitRadius", label: "Unit corner radius", type: "range", min: 0, max: 40, step: 2, unit: "px" },
     // Layout -----------------------------------------------------
     { tab: "Publisher", section: "Layout", key: "unitMargin", label: "Unit margin", type: "range", min: 0, max: 48, step: 4, unit: "px" },
@@ -811,7 +819,7 @@
   }
 
   /* keys whose value toggles other controls' visibility */
-  const RERENDER_KEYS = ["buttonColorMode", "buttonRadiusMode", "unitBgAuto"];
+  const RERENDER_KEYS = ["buttonColorMode", "buttonRadiusMode", "unitBgAuto", "unitBorder"];
 
   function buildControl(c) {
     const wrap = document.createElement("div");

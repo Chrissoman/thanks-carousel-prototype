@@ -93,6 +93,8 @@
   position: relative;              /* anchors the edge-fade overlay */
   background: var(--unit-bg, rgba(0, 0, 0, 0.03));
   border-radius: var(--unit-radius, 4px);
+  /* optional unit border, drawn as an inset shadow (config) */
+  box-shadow: var(--unit-border-shadow, none);
   margin: var(--unit-margin, 0px);
   /* unit rhythm (Figma): desktop 24/20 · mobile 20/16, set in JS */
   padding-top: var(--unit-pad-top, 24px);
