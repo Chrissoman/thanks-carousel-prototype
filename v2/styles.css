@@ -93,14 +93,24 @@
   position: relative;              /* anchors the edge-fade overlay */
   background: var(--unit-bg, rgba(0, 0, 0, 0.03));
   border-radius: var(--unit-radius, 4px);
-  /* optional unit border, drawn as an inset shadow (config) */
-  box-shadow: var(--unit-border-shadow, none);
   margin: var(--unit-margin, 0px);
   /* unit rhythm (Figma): desktop 24/20 · mobile 20/16, set in JS */
   padding-top: var(--unit-pad-top, 24px);
   padding-bottom: 8px;
 }
 .thanks-proto.theme-dark .carousel { background: var(--unit-bg, rgba(255, 255, 255, 0.05)); }
+/* optional unit border (config): an inset shadow on an OVERLAY layer
+   so it paints above the edge fades (z-index 1) and the peeking
+   cards; pointer-events stay untouched */
+.carousel::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  border-radius: var(--unit-radius, 4px);
+  box-shadow: var(--unit-border-shadow, none);
+  pointer-events: none;
+  z-index: 2;
+}
 
 /* ============================================================
    Scroll viewport + track (snap: start — fixed in v2)
